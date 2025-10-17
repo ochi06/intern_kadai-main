@@ -14,6 +14,30 @@
 
 namespace Oil;
 
+use Fuel\Core\Finder;
+use Fuel\Core\Cli;
+use Fuel\Core\Inflector;
+use Fuel\Core\Str;
+use Fuel\Core\File;
+use Fuel\Core\Config;
+use Fuel\Core\Module;
+use Fuel\Core\Autoloader;
+use Fuel\Core\Fuel;
+use Fuel\Core\Debug;
+use Fuel\Core\Date;
+use Fuel\Core\DB;
+use Fuel\Core\Arr;
+use Fuel\Core\Package;
+use Fuel\Core\CliException;
+use Fuel\Core\CliTask;
+use Fuel\Core\CliOptions;
+use Fuel\Core\CliPrompt;
+use Fuel\Core\CliProgress;
+use Fuel\Core\CliTable;
+use Fuel\Core\CliMessage;
+
+
+
 /**
  * Oil\Generate Class
  *
@@ -47,14 +71,14 @@ class Generate
 		$config = array();
 
 		// load the config
-		if ($paths = \Finder::search('config', $file, '.php', true))
+		if ($paths = Finder::search('config', $file, '.php', true))
 		{
 			// Reverse the file list so that we load the core configs first and
 			// the app can override anything.
 			$paths = array_reverse($paths);
 			foreach ($paths as $path)
 			{
-				$config = \Fuel::load($path) + $config;
+				$config = Fuel::load($path) + $config;
 			}
 		}
 		unset($path);
@@ -72,7 +96,7 @@ class Generate
 			}
 		}
 
-		$overwrite = (\Cli::option('o') or \Cli::option('overwrite'));
+		$overwrite = (Cli::option('o') or Cli::option('overwrite'));
 
 		// strip whitespace and add tab
 		$export = str_replace(array('  ', 'array ('), array("\t", 'array('), var_export($config, true));
@@ -84,7 +108,7 @@ class Generate
 /* End of file $file.php */
 CONF;
 
-		$module = \Cli::option('module', \Cli::option('m'));
+		$module = Cli::option('module', Cli::option('m'));
 
 		// add support for `php oil g config module::file arg1:value1`
 		if (strpos($file, '::') !== false)
@@ -93,7 +117,7 @@ CONF;
 		}
 
 		// get the namespace path (if available)
-		if ( ! empty($module) and $path = \Autoloader::namespace_path('\\'.ucfirst($module)))
+		if ( ! empty($module) and $path = Autoloader::namespace_path('\\'.ucfirst($module)))
 		{
 			// strip the classes directory as we need the module root
 			// and construct the filename
@@ -119,14 +143,14 @@ CONF;
 
 		try
 		{
-			\File::update($path['dirname'], $path['basename'], $content);
-			\Cli::write("Created config: {$path_name}config/{$file}.php", 'green');
+			File::update($path['dirname'], $path['basename'], $content);
+			Cli::write("Created config: {$path_name}config/{$file}.php", 'green');
 		}
-		catch (\InvalidPathException $e)
+		catch (InvalidPathException $e)
 		{
 			throw new Exception("Invalid basepath, cannot update at ".$path_name."config".DS."{$file}.php");
 		}
-		catch (\FileAccessException $e)
+		catch (FileAccessException $e)
 		{
 			throw new Exception($path_name."config".DS.$file.".php could not be written.");
 		}
@@ -134,13 +158,13 @@ CONF;
 
 	public static function controller($args, $build = true)
 	{
-		if ( ! ($name = \Str::lower(array_shift($args))))
+		if ( ! ($name = Str::lower(array_shift($args))))
 		{
 			throw new Exception('No controller name was provided.');
 		}
 
 		// Do we want a view or a presenter?
-		$with_presenter = \Cli::option('with-presenter') or \Cli::option('with-viewmodel');
+		$with_presenter = Cli::option('with-presenter') or Cli::option('with-viewmodel');
 
  		$actions = $args;
 
@@ -148,9 +172,9 @@ CONF;
 
 		$base_path = APPPATH;
 
-		if ($module = \Cli::option('module'))
+		if ($module = Cli::option('module'))
 		{
-			if ( ! ($base_path = \Module::exists($module)) )
+			if ( ! ($base_path = Module::exists($module)) )
 			{
 				throw new Exception('Module '.$module.' was not found within any of the defined module paths');
 			}
@@ -159,10 +183,10 @@ CONF;
 		$filepath = $base_path.'classes'.DS.'controller'.DS.$filename.'.php';
 
 		// Uppercase each part of the class name and remove hyphens
-		$class_name = \Inflector::classify(str_replace(array('\\', '/'), '_', $name), false);
+		$class_name = Inflector::classify(str_replace(array('\\', '/'), '_', $name), false);
 
 		// Generate with test?
-		$with_test = \Cli::option('with-test');
+		$with_test = Cli::option('with-test');
 		if ($with_test) {
 			static::_create_test('Controller', $class_name, $base_path);
 		}
@@ -171,7 +195,7 @@ CONF;
 		array_unshift($args, $filename);
 
 		// Create views folder and each view file
-		if (\Cli::option('crud'))
+		if (Cli::option('crud'))
 		{
 			static::views($args, 'scaffolding'.DS.'crud'.DS.'views', false);
 		}
@@ -189,13 +213,13 @@ CONF;
 	public function action_'.$action.'()
 	{
 		$data["subnav"] = array(\''.$action.'\'=> \'active\' );
-		$this->template->title = \'' . \Inflector::humanize($name) .' &raquo; ' . \Inflector::humanize($action) . '\';
+		$this->template->title = \'' . Inflector::humanize($name) .' &raquo; ' . Inflector::humanize($action) . '\';
 		$this->template->content = View::forge(\''.$filename.'/' . $action .'\', $data);
 	}'.PHP_EOL;
 		}
 
-		$extends = \Cli::option('extends', 'Controller_Template');
-		$prefix = \Config::get('controller_prefix', 'Controller_');
+		$extends = Cli::option('extends', 'Controller_Template');
+		$prefix = Config::get('controller_prefix', 'Controller_');
 
 		// Build Controller
 		$controller = <<<CONTROLLER
@@ -237,7 +261,7 @@ PRESENTER;
 		}
 
 		// Generate with test?
-		$with_test = \Cli::option('with-test');
+		$with_test = Cli::option('with-test');
 		if ($with_presenter and $with_test) {
 			static::_create_test('Presenter', $class_name, $base_path);
 		}
@@ -247,7 +271,7 @@ PRESENTER;
 
 	public static function model($args, $build = true)
 	{
-		$singular = \Inflector::singularize(\Str::lower(array_shift($args)));
+		$singular = Inflector::singularize(\Str::lower(array_shift($args)));
 
 		if (empty($singular) or strpos($singular, ':'))
 		{
@@ -259,14 +283,14 @@ PRESENTER;
 			throw new Exception('No fields have been provided, the model will not know how to build the table.');
 		}
 
-		$plural = \Cli::option('singular') ? $singular : \Inflector::pluralize($singular);
+		$plural = Cli::option('singular') ? $singular : Inflector::pluralize($singular);
 
 		$filename = trim(str_replace(array('_', '-'), DS, $singular), DS);
 		$base_path = APPPATH;
 
-		if ($module = \Cli::option('module'))
+		if ($module = Cli::option('module'))
 		{
-			if ( ! ($base_path = \Module::exists($module)) )
+			if ( ! ($base_path = Module::exists($module)) )
 			{
 				throw new Exception('Module '.$module.' was not found within any of the defined module paths');
 			}
@@ -277,7 +301,7 @@ PRESENTER;
 		$filepath = $base_path.'classes'.DS.'model'.DS.$filename.'.php';
 
 		// Uppercase each part of the class name and remove hyphens
-		$class_name = \Inflector::classify(str_replace(array('\\', '/'), '_', $singular), false);
+		$class_name = Inflector::classify(str_replace(array('\\', '/'), '_', $singular), false);
 
 		// Turn foo:string into "id", "foo",
 		$properties = implode(",\n\t\t", array_map(function($field) {
@@ -296,17 +320,17 @@ PRESENTER;
 		$contents = '';
 
 		// Generate with test?
-		$with_test = \Cli::option('with-test');
+		$with_test = Cli::option('with-test');
 		if ($with_test) {
 			static::_create_test('Model', $class_name, $base_path);
 		}
 
-		if (\Cli::option('crud'))
+		if (Cli::option('crud'))
 		{
 			// Make sure an id is present
 			strpos($properties, "'id'") === false and $properties = "'id',".$properties;
 
-			if ( ! \Cli::option('no-properties'))
+			if ( ! Cli::option('no-properties'))
 			{
 				$contents = <<<CONTENTS
 	protected static \$_properties = array(
@@ -316,7 +340,7 @@ PRESENTER;
 CONTENTS;
 			}
 
-			if($created_at = \Cli::option('created-at'))
+			if($created_at = Cli::option('created-at'))
 			{
 				is_string($created_at) or $created_at = 'created_at';
 
@@ -327,7 +351,7 @@ CONTENTS;
 CONTENTS;
 			}
 
-			if($updated_at = \Cli::option('updated-at'))
+			if($updated_at = Cli::option('updated-at'))
 			{
 				is_string($updated_at) or $updated_at = 'updated_at';
 
@@ -338,7 +362,7 @@ CONTENTS;
 CONTENTS;
 			}
 
-			if(\Cli::option('mysql-timestamp'))
+			if(Cli::option('mysql-timestamp'))
 			{
 				$contents .= <<<CONTENTS
 
@@ -379,35 +403,35 @@ MODEL;
 		}
 		else
 		{
-			$time_type = (\Cli::option('mysql-timestamp')) ? 'timestamp' : 'int';
+			$time_type = (Cli::option('mysql-timestamp')) ? 'timestamp' : 'int';
 			$no_timestamp_default = false;
 
-			if ( \Cli::option('soft-delete'))
+			if ( Cli::option('soft-delete'))
 			{
-				$deleted_at = \Cli::option('deleted-at', 'deleted_at');
+				$deleted_at = Cli::option('deleted-at', 'deleted_at');
 				is_string($deleted_at) or $deleted_at = 'deleted_at';
 				$properties .= "\n\t\t'".$deleted_at."',";
 
 				$args = array_merge($args, array($deleted_at.':'.$time_type.':null[1]'));
 			}
-			elseif (\Cli::option('temporal'))
+			elseif (Cli::option('temporal'))
 			{
-				$temporal_end = \Cli::option('temporal-end', 'temporal_end');
+				$temporal_end = Cli::option('temporal-end', 'temporal_end');
 				is_string($temporal_end) or $temporal_end = 'temporal_end';
 				$properties = "\n\t\t'".$temporal_end."'," . $properties;
 
 				$args = array_merge(array($temporal_end.':'.$time_type), $args);
 
-				$temporal_start = \Cli::option('temporal-start', 'temporal_start');
+				$temporal_start = Cli::option('temporal-start', 'temporal_start');
 				is_string($temporal_start) or $temporal_start = 'temporal_start';
 				$properties = "\n\t\t'".$temporal_start."'," . $properties;
 
 				$args = array_merge(array($temporal_start.':'.$time_type), $args);
 				$no_timestamp_default = true;
 			}
-			elseif (\Cli::option('nestedset'))
+			elseif (Cli::option('nestedset'))
 			{
-				$title = \Cli::option('title', false);
+				$title = Cli::option('title', false);
 
 				if ($title)
 				{
@@ -417,7 +441,7 @@ MODEL;
 					$args = array_merge(array($title.':varchar[50]'), $args);
 				}
 
-				$tree_id = \Cli::option('tree-id', false);
+				$tree_id = Cli::option('tree-id', false);
 
 				if ($tree_id)
 				{
@@ -427,13 +451,13 @@ MODEL;
 					$args = array_merge(array($tree_id.':int:unsigned'), $args);
 				}
 
-				$right_id = \Cli::option('right-id', 'right_id');
+				$right_id = Cli::option('right-id', 'right_id');
 				is_string($right_id) or $right_id = 'right_id';
 				$properties = "\n\t\t'".$right_id."'," . $properties;
 
 				$args = array_merge(array($right_id.':int:unsigned'), $args);
 
-				$left_id = \Cli::option('left-id', 'left_id');
+				$left_id = Cli::option('left-id', 'left_id');
 				is_string($left_id) or $left_id = 'left_id';
 				$properties = "\n\t\t'".$left_id."'," . $properties;
 
@@ -441,13 +465,13 @@ MODEL;
 				$no_timestamp_default = true;
 			}
 
-			if ( ! \Cli::option('no-timestamp', $no_timestamp_default))
+			if ( ! Cli::option('no-timestamp', $no_timestamp_default))
 			{
-				$created_at = \Cli::option('created-at', 'created_at');
+				$created_at = Cli::option('created-at', 'created_at');
 				is_string($created_at) or $created_at = 'created_at';
 				$properties .= "\n\t\t'".$created_at."',";
 
-				$updated_at = \Cli::option('updated-at', 'updated_at');
+				$updated_at = Cli::option('updated-at', 'updated_at');
 				is_string($updated_at) or $updated_at = 'updated_at';
 				$properties .= "\n\t\t'".$updated_at."',";
 
@@ -459,7 +483,7 @@ MODEL;
 			// Make sure an id is present
 			strpos($properties, "'id'") === false and $properties = "'id',".$properties;
 
-			if ( ! \Cli::option('no-properties'))
+			if ( ! Cli::option('no-properties'))
 			{
 				$contents = <<<CONTENTS
 	protected static \$_properties = array(
@@ -469,12 +493,12 @@ MODEL;
 CONTENTS;
 			}
 
-			$mysql_timestamp = (\Cli::option('mysql-timestamp')) ? 'true' : 'false';
+			$mysql_timestamp = (Cli::option('mysql-timestamp')) ? 'true' : 'false';
 
-			if ( ! \Cli::option('no-timestamp', $no_timestamp_default))
+			if ( ! Cli::option('no-timestamp', $no_timestamp_default))
 			{
 
-				if(($created_at = \Cli::option('created-at')) and is_string($created_at))
+				if(($created_at = Cli::option('created-at')) and is_string($created_at))
 				{
 					$created_at = <<<CONTENTS
 
@@ -486,7 +510,7 @@ CONTENTS;
 					$created_at = '';
 				}
 
-				if(($updated_at = \Cli::option('updated-at')) and is_string($updated_at))
+				if(($updated_at = Cli::option('updated-at')) and is_string($updated_at))
 				{
 					$updated_at = <<<CONTENTS
 
@@ -514,7 +538,7 @@ CONTENTS;
 
 			}
 
-			if (\Cli::option('soft-delete'))
+			if (Cli::option('soft-delete'))
 			{
 				if($deleted_at !== 'deleted_at')
 				{
@@ -536,7 +560,7 @@ CONTENTS;
 	);
 CONTENTS;
 			}
-			elseif (\Cli::option('temporal'))
+			elseif (Cli::option('temporal'))
 			{
 				if($temporal_start !== 'temporal_start')
 				{
@@ -572,7 +596,7 @@ CONTENTS;
 	protected static \$_primary_key = array('id', '{$temporal_start}', '{$temporal_end}');
 CONTENTS;
 			}
-			elseif (\Cli::option('nestedset'))
+			elseif (Cli::option('nestedset'))
 			{
 				if($left_id !== 'left_id')
 				{
@@ -618,7 +642,7 @@ CONTENTS;
 					$title_field = '';
 				}
 
-				if($read_only = \Cli::option('read-only') and is_string($read_only))
+				if($read_only = Cli::option('read-only') and is_string($read_only))
 				{
 					$read_only = explode(',', $read_only);
 					$read_only = "'" . implode("', '", $read_only) . "'";
@@ -656,7 +680,7 @@ CONTENTS;
 CONTENTS;
 
 			$model = '';
-			if ( \Cli::option('soft-delete'))
+			if ( Cli::option('soft-delete'))
 			{
 				if ($module)
 				{
@@ -683,7 +707,7 @@ class Model_{$class_name} extends \Orm\Model_Soft
 MODEL;
 				}
 			}
-			elseif ( \Cli::option('temporal'))
+			elseif ( Cli::option('temporal'))
 			{
 				$model .= <<<MODEL
 <?php
@@ -695,7 +719,7 @@ class Model_{$class_name} extends \Orm\Model_Temporal
 
 MODEL;
 			}
-			elseif ( \Cli::option('nestedset'))
+			elseif ( Cli::option('nestedset'))
 			{
 				$model .= <<<MODEL
 <?php
@@ -739,7 +763,7 @@ MODEL;
 		// Build the model
 		static::create($filepath, $model, 'model');
 
-		if ( ! \Cli::option('no-migration'))
+		if ( ! Cli::option('no-migration'))
 		{
 			if ( ! empty($args))
 			{
@@ -763,27 +787,27 @@ MODEL;
 			throw new Exception('No module name has been provided.');
 		}
 
-		if ($path = \Module::exists($module_name))
+		if ($path = Module::exists($module_name))
 		{
 			throw new Exception('A module named '.$module_name.' already exists at '.$path);
 		}
 
-		$module_paths = \Config::get('module_paths');
+		$module_paths = Config::get('module_paths');
 		$base = reset($module_paths);
 
 		if (count($module_paths) > 1)
 		{
-			\Cli::write('Your app has multiple module paths defined. Please choose the appropriate path from the list below', 'yellow', 'blue');
+			Cli::write('Your app has multiple module paths defined. Please choose the appropriate path from the list below', 'yellow', 'blue');
 
 			$options = array();
 			foreach ($module_paths as $key => $path)
 			{
 				$idx = $key+1;
-				\Cli::write('['.$idx.'] '.$path);
+				Cli::write('['.$idx.'] '.$path);
 				$options[] = $idx;
 			}
 
-			$path_idx = \Cli::prompt('Please choose the desired module path', $options);
+			$path_idx = Cli::prompt('Please choose the desired module path', $options);
 
 			$base = $module_paths[$path_idx - 1];
 		}
@@ -793,7 +817,7 @@ MODEL;
 		static::$create_folders[] = $module_path;
 		static::$create_folders[] = $module_path.'classes/';
 
-		if ( ($folders = \Cli::option('folders')) !== true )
+		if ( ($folders = Cli::option('folders')) !== true )
 		{
 			$folders = explode(',', $folders);
 
@@ -809,12 +833,12 @@ MODEL;
 	public static function views($args, $subfolder, $build = true)
 	{
 		$controller = strtolower(array_shift($args));
-		$controller_title = \Inflector::humanize($controller);
+		$controller_title = Inflector::humanize($controller);
 
 		$base_path = APPPATH;
-		if ($module = \Cli::option('module'))
+		if ($module = Cli::option('module'))
 		{
-			if ( ! ($base_path = \Module::exists($module)) )
+			if ( ! ($base_path = Module::exists($module)) )
 			{
 				throw new Exception('Module '.$module.' was not found within any of the defined module paths');
 			}
@@ -836,12 +860,12 @@ MODEL;
 		$subnav = '';
 		foreach($args as $nav_item)
 		{
-			$subnav .= "\t<li class='<?php echo Arr::get(\$subnav, \"{$nav_item}\" ); ?>'><?php echo Html::anchor('{$controller}/{$nav_item}','".\Inflector::humanize($nav_item)."');?></li>\n";
+			$subnav .= "\t<li class='<?php echo Arr::get(\$subnav, \"{$nav_item}\" ); ?>'><?php echo Html::anchor('{$controller}/{$nav_item}','".Inflector::humanize($nav_item)."');?></li>\n";
 		}
 
 		foreach ($args as $action)
 		{
-			$view_title = (\Cli::option('with-presenter') or \Cli::option('with-viewmodel')) ? '<?php echo $content; ?>' : \Inflector::humanize($action);
+			$view_title = (Cli::option('with-presenter') or Cli::option('with-viewmodel')) ? '<?php echo $content; ?>' : Inflector::humanize($action);
 
 			$view = <<<VIEW
 <ul class="nav nav-pills">
@@ -851,7 +875,7 @@ MODEL;
 VIEW;
 
 			// Generate with test?
- 			$with_test = \Cli::option('with-test');
+ 			$with_test = Cli::option('with-test');
             		if ($with_test) {
                			static::_create_test('View', $controller, $base_path, $nav_item);
 			}
@@ -876,9 +900,9 @@ VIEW;
 		$base_path = APPPATH;
 
 		// Check if a migration with this name already exists
-		if ($module = \Cli::option('module'))
+		if ($module = Cli::option('module'))
 		{
-			if ( ! ($base_path = \Module::exists($module)) )
+			if ( ! ($base_path = Module::exists($module)) )
 			{
 				throw new Exception('Module '.$module.' was not found within any of the defined module paths');
 			}
@@ -914,7 +938,7 @@ VIEW;
 		if (count($duplicates) > 0)
 		{
 			// Don't override a file
-			if (\Cli::option('s', \Cli::option('skip')) === true)
+			if (Cli::option('s', Cli::option('skip')) === true)
 			{
 				return;
 			}
@@ -923,7 +947,7 @@ VIEW;
 			$file_name = pathinfo(end($duplicates), PATHINFO_FILENAME);
 
 			// Override the (most recent) migration with the same name by using its number
-			if (\Cli::option('f', \Cli::option('force')) === true)
+			if (Cli::option('f', Cli::option('force')) === true)
 			{
 				list($number) = explode('_', $file_name);
 			}
@@ -1192,20 +1216,20 @@ MIGRATION;
 
 		if (empty($args))
 		{
-			\Cli::write("\tNo tasks actions have been provided, the TASK will only create default task.", 'red');
+			Cli::write("\tNo tasks actions have been provided, the TASK will only create default task.", 'red');
 		}
 
 		$args or $args = array('index');
 
 		// Uppercase each part of the class name and remove hyphens
-		$class_name = \Inflector::classify($name, false);
+		$class_name = Inflector::classify($name, false);
 		$filename = trim(str_replace(array('_', '-'), DS, $name), DS);
 
 		$base_path = APPPATH;
 
-		if ($module = \Cli::option('module'))
+		if ($module = Cli::option('module'))
 		{
-			if ( ! ($base_path = \Module::exists($module)) )
+			if ( ! ($base_path = Module::exists($module)) )
 			{
 				throw new Exception('Module '.$module.' was not found within any of the defined module paths');
 			}
@@ -1217,7 +1241,7 @@ MIGRATION;
 
 		foreach ($args as $action)
 		{
-			$task_path = '\\'.\Inflector::humanize($name).'\\'.\Inflector::humanize($action);
+			$task_path = '\\'.Inflector::humanize($name).'\\'.Inflector::humanize($action);
 
 			if (!ctype_alpha($action[0])) {
 				throw new Exception('An action does not start with alphabet character.  ABORTING');
@@ -1236,7 +1260,7 @@ MIGRATION;
 	public function '.$action.'($args = NULL)
 	{
 		echo "\n===========================================";
-		echo "\nRunning task ['.\Inflector::humanize($name).':'. \Inflector::humanize($action) . ']";
+		echo "\nRunning task ['.Inflector::humanize($name).':'. Inflector::humanize($action) . ']";
 		echo "\n-------------------------------------------\n\n";
 
 		/***************************
@@ -1244,10 +1268,10 @@ MIGRATION;
 		 **************************/
 	}'.PHP_EOL;
 
-			$message = \Cli::color("\t\tPreparing task method [", 'green');
-			$message .= \Cli::color(\Inflector::humanize($action), 'cyan');
-			$message .= \Cli::color("]", 'green');
-			\Cli::write($message);
+			$message = Cli::color("\t\tPreparing task method [", 'green');
+			$message .= Cli::color(Inflector::humanize($action), 'cyan');
+			$message .= Cli::color("]", 'green');
+			Cli::write($message);
 		}
 
 		// Default RUN task action
@@ -1265,7 +1289,7 @@ MIGRATION;
 	public function run($args = NULL)
 	{
 		echo "\n===========================================";
-		echo "\nRunning DEFAULT task ['.\Inflector::humanize($name).':'. \Inflector::humanize($action) . ']";
+		echo "\nRunning DEFAULT task ['.Inflector::humanize($name).':'. Inflector::humanize($action) . ']";
 		echo "\n-------------------------------------------\n\n";
 
 		/***************************
@@ -1329,28 +1353,28 @@ Documentation:
   http://docs.fuelphp.com/packages/oil/generate.html
 HELP;
 
-		\Cli::write($output);
+		Cli::write($output);
 	}
 
 	public static function package($args, $build = true)
 	{
-		$name       = str_replace(array('/', '_', '-'), '', \Str::lower(array_shift($args)));
+		$name       = str_replace(array('/', '_', '-'), '', Str::lower(array_shift($args)));
 		$class_name = ucfirst($name);
-		$vcs        = \Cli::option('vcs', \Cli::option('v', false));
-		$path       = \Cli::option('path', \Cli::option('p', PKGPATH));
-		$drivers    = \Cli::option('drivers', \Cli::option('d', ''));
+		$vcs        = Cli::option('vcs', Cli::option('v', false));
+		$path       = Cli::option('path', Cli::option('p', PKGPATH));
+		$drivers    = Cli::option('drivers', Cli::option('d', ''));
 
 		if (empty($name))
 		{
 			throw new \Exception('No package name has been provided.');
 		}
 
-		if ( ! in_array($path, \Config::get('package_paths')) and ! in_array(realpath($path), \Config::get('package_paths')) )
+		if ( ! in_array($path, Config::get('package_paths')) and ! in_array(realpath($path), Config::get('package_paths')) )
 		{
 			throw new \Exception('Given path is not a valid package path.');
 		}
 
-		\Str::ends_with($path, DS) or $path .= DS;
+		Str::ends_with($path, DS) or $path .= DS;
 		$path .= $name . DS;
 
 		if (is_dir($path))
@@ -1429,7 +1453,7 @@ class {$class_name}
 	 */
 	public static function _init()
 	{
-		\Config::load('{$name}', true);
+		Config::load('{$name}', true);
 	}
 
 	/**
@@ -1443,7 +1467,7 @@ class {$class_name}
 	{
 		is_array(\$config) or \$config = array('driver' => \$config);
 
-		\$config = \Arr::merge(static::\$_defaults, \Config::get('{$name}', array()), \$config);
+		\$config = \Arr::merge(static::\$_defaults, Config::get('{$name}', array()), \$config);
 
 		\$class = '\\{$class_name}\\{$class_name}_' . ucfirst(strtolower(\$config['driver']));
 
@@ -1549,7 +1573,7 @@ DRIVER;
 			{
 				foreach ($drivers as $driver)
 				{
-					$driver = \Str::lower($driver);
+					$driver = Str::lower($driver);
 					$driver_name = ucfirst($driver);
 					$output = <<<CLASS
 <?php
@@ -1597,7 +1621,7 @@ class {$class_name}
 	 */
 	public static function _init()
 	{
-		\Config::load('{$name}', true);
+		Config::load('{$name}', true);
 	}
 
 	/**
@@ -1608,7 +1632,7 @@ class {$class_name}
 	 */
 	public static function forge(\$config = array())
 	{
-		\$config = \Arr::merge(static::\$_defaults, \Config::get('{$name}', array()), \$config);
+		\$config = \Arr::merge(static::\$_defaults, Config::get('{$name}', array()), \$config);
 
 		\$class = new static(\$config);
 
@@ -1696,14 +1720,14 @@ CLASS;
 		if (is_file($filepath))
 		{
 			// Don't override a file
-			if (\Cli::option('s', \Cli::option('skip')) === true)
+			if (Cli::option('s', Cli::option('skip')) === true)
 			{
 				// Don't bother trying to make this, carry on camping
 				return;
 			}
 
 			// If we aren't skipping it, tell em to use -f
-			if (\Cli::option('f', \Cli::option('force')) === null)
+			if (Cli::option('f', Cli::option('force')) === null)
 			{
 				throw new Exception($filepath .' already exists, use -f or --force to override.');
 				exit;
@@ -1728,7 +1752,7 @@ CLASS;
 
 		foreach (static::$create_files as $file)
 		{
-			\Cli::write("\tCreating {$file['type']}: {$file['path']}", 'green');
+			Cli::write("\tCreating {$file['type']}: {$file['path']}", 'green');
 
 			if ( ! $handle = @fopen($file['path'], 'w+'))
 			{
@@ -1762,9 +1786,9 @@ CLASS;
 	{
 		$base_path = APPPATH;
 
-		if ($module = \Cli::option('module'))
+		if ($module = Cli::option('module'))
 		{
-			if ( ! ($base_path = \Module::exists($module)) )
+			if ( ! ($base_path = Module::exists($module)) )
 			{
 				throw new Exception('Module ' . $module . ' was not found within any of the defined module paths');
 			}
@@ -1780,14 +1804,21 @@ CLASS;
 				$migrations[] = $file->getPathname();
 			}
 			sort($migrations);
-			list($last) = explode('_', basename(end($migrations)));
+			$last = 0;
+			if (!empty($migrations))
+				{
+					$last_file = basename(end($migrations));
+					if (strpos($last_file, '_') !== false){
+						list($last) = explode('_', $last_file);
+					}
+				}
 		}
 		catch (\LogicException $e)
 		{
 			throw new Exception("Unable to read existing migrations. Path does not exist, or you may have an 'open_basedir' defined");
 		}
 
-		return str_pad($last + 1, 3, '0', STR_PAD_LEFT);
+		return str_pad((int)$last + 1, 14, '0', STR_PAD_LEFT);
 	}
 
 	private static function _update_current_version($version)
