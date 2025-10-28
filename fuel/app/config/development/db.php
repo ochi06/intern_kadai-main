@@ -7,7 +7,7 @@ return array(
 	'default' => array(
 		'type'        => 'mysqli',
 		'connection'  => array(
-			'hostname'   => 'db',
+			'hostname'   => 'localhost',  // PHPビルトインサーバー用にlocalhostに変更
 			'database'   => 'todo_schedule',
 			'username'   => 'root',
 			'password'   => 'root',

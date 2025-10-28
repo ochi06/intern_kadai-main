@@ -36,7 +36,8 @@ abstract class Presenter
 	public static function forge($presenter, $method = 'view', $auto_filter = null, $view = null)
 	{
 		// determine the presenter namespace from the current request context
-		$namespace = \Request::active() ? ucfirst(\Request::active()->module) : '';
+		$module = \Request::active() ? \Request::active()->module : null;
+		$namespace = $module ? ucfirst($module) : '';
 
 		// create the list of possible class prefixes
 		$prefixes = array(static::$ns_prefix, $namespace.'\\');

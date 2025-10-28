@@ -1,8 +1,6 @@
 <?php
 
-namespace Controller;
-
-class Auth extends \Controller
+class Controller_Auth extends Controller
 {
     public function action_login()
     {

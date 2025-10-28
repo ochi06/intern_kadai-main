@@ -100,6 +100,114 @@
             border-radius: 4px;
             margin-bottom: 15px;
         }
+
+        /* モーダルのスタイル */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0, 0, 0, 0.4);
+        }
+
+        .modal-content {
+            background-color: #fefefe;
+            margin: 10% auto;
+            padding: 30px;
+            border: 1px solid #888;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .modal-header {
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #007bff;
+        }
+
+        .modal-header h2 {
+            margin: 0;
+            color: #333;
+            font-size: 24px;
+        }
+
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            line-height: 20px;
+        }
+
+        .close:hover,
+        .close:focus {
+            color: #000;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 500;
+        }
+
+        .form-group input[type="text"],
+        .form-group textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        .modal-footer {
+            margin-top: 25px;
+            text-align: right;
+        }
+
+        .modal-footer button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-left: 10px;
+        }
+
+        .btn-cancel {
+            background-color: #6c757d;
+            color: white;
+        }
+
+        .btn-cancel:hover {
+            background-color: #5a6268;
+        }
+
+        .btn-submit {
+            background-color: #007bff;
+            color: white;
+        }
+
+        .btn-submit:hover {
+            background-color: #0056b3;
+        }
     </style>
 </head>
 <body>
@@ -122,7 +230,7 @@
         <?php endif; ?>
 
         <!-- 新規プロジェクト作成ボタン -->
-        <a href="<?php echo Uri::create('project/create'); ?>" class="create-btn">新規プロジェクト作成</a>
+        <button id="createProjectBtn" class="create-btn">新規プロジェクト作成</button>
 
         <!-- プロジェクト一覧 -->
         <div class="section-title">プロジェクト一覧</div>
@@ -151,6 +259,98 @@
             </ul>
         <?php endif; ?>
     </div>
+
+    <!-- プロジェクト作成モーダル -->
+    <div id="createProjectModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span class="close">&times;</span>
+                <h2>新規プロジェクト作成</h2>
+            </div>
+            <form id="createProjectForm">
+                <div class="form-group">
+                    <label for="project_name">プロジェクト名 <span style="color: red;">*</span></label>
+                    <input type="text" id="project_name" name="project_name" required>
+                </div>
+                <div class="form-group">
+                    <label for="description">説明</label>
+                    <textarea id="description" name="description"></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-cancel" id="cancelBtn">キャンセル</button>
+                    <button type="submit" class="btn-submit">作成</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // モーダル要素の取得
+        const modal = document.getElementById('createProjectModal');
+        const btn = document.getElementById('createProjectBtn');
+        const span = document.getElementsByClassName('close')[0];
+        const cancelBtn = document.getElementById('cancelBtn');
+        const form = document.getElementById('createProjectForm');
+
+        // モーダルを開く
+        btn.onclick = function() {
+            modal.style.display = 'block';
+        }
+
+        // モーダルを閉じる
+        span.onclick = function() {
+            modal.style.display = 'none';
+            form.reset();
+        }
+
+        cancelBtn.onclick = function() {
+            modal.style.display = 'none';
+            form.reset();
+        }
+
+        // モーダル外をクリックで閉じる
+        window.onclick = function(event) {
+            if (event.target == modal) {
+                modal.style.display = 'none';
+                form.reset();
+            }
+        }
+
+        // フォーム送信処理
+        form.onsubmit = async function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(form);
+            const data = {
+                project_name: formData.get('project_name'),
+                description: formData.get('description')
+            };
+
+            try {
+                const response = await fetch('<?php echo Uri::create('project/create'); ?>', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    // 成功したらページをリロード
+                    alert('プロジェクトを作成しました');
+                    location.reload();
+                } else {
+                    // エラー表示
+                    alert('エラー: ' + (result.error || '作成に失敗しました'));
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('通信エラーが発生しました');
+            }
+        }
+    </script>
 </body>
 </html>
 
