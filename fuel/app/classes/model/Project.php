@@ -33,4 +33,20 @@ class Project
         
         return $result;
     }
+
+    public static function update($id, $data)
+    {
+        $data['updated_at'] = date('Y-m-d H:i:s');
+        return DB::update('projects')
+        ->set($data)
+        ->where('id', '=', $id)
+        ->execute();
+    }
+
+    public static function delete($id)
+    {
+        return DB::delete('projects')
+            ->where('id', '=', $id)
+            ->execute();
+    }
 }

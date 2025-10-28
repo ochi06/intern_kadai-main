@@ -34,4 +34,22 @@ class WorkLog
         
         return $result;
     }
+
+    public static function update($id, $data)
+    {
+        // updated_atを自動設定
+        $data['updated_at'] = date('Y-m-d H:i:s');
+        
+        return DB::update('work_logs')
+            ->set($data)
+            ->where('id', '=', $id)
+            ->execute();
+    }
+
+    public static function delete($id)
+    {
+        return DB::delete('work_logs')
+            ->where('id', '=', $id)
+            ->execute();
+    }
 }
