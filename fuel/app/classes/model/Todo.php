@@ -1,14 +1,14 @@
 <?php
 
-namespace Model;
 
-use \Fuel\Core\DB;
 
-class Todo
+
+
+class Model_Todo
 {
     public static function create($project_id, $title, $description, $start_date, $end_date)
     {
-        return DB::insert('todos')
+        return \DB::insert('todos')
             ->set(array(
                 'project_id' => $project_id,
                 'title' => $title,
@@ -23,16 +23,23 @@ class Todo
 
     public static function findByProjectId($project_id)
     {
-        $query = DB::query("SELECT * FROM todos WHERE project_id = ? ORDER BY created_at DESC", array($project_id));
-        $result = $query->execute()->as_array();
+        $result = \DB::select()
+            ->from('todos')
+            ->where('project_id', '=', $project_id)
+            ->order_by('created_at', 'desc')
+            ->execute()
+            ->as_array();
         
         return $result;
     }
 
     public static function findById($id)
     {
-        $query = DB::query("SELECT * FROM todos WHERE id = ?", array($id));
-        $result = $query->execute()->current();
+        $result = \DB::select()
+            ->from('todos')
+            ->where('id', '=', $id)
+            ->execute()
+            ->current();
         
         return $result;
     }
@@ -42,7 +49,7 @@ class Todo
         // updated_atを自動設定
         $data['updated_at'] = date('Y-m-d H:i:s');
         
-        return DB::update('todos')
+        return \DB::update('todos')
             ->set($data)
             ->where('id', '=', $id)
             ->execute();
@@ -50,7 +57,7 @@ class Todo
 
     public static function delete($id)
     {
-        return DB::delete('todos')
+        return \DB::delete('todos')
             ->where('id', '=', $id)
             ->execute();
     }

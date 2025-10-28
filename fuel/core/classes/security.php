@@ -144,10 +144,19 @@ class Security
 
 			foreach ($filters as $filter)
 			{
-				// is this filter a callable local function?
-				if (is_string($filter) and is_callable('static::'.$filter))
+				// is this filter a string containing "::" (static method call)?
+				if (is_string($filter) and strpos($filter, '::') !== false)
 				{
-					$var = static::$filter($var);
+					$parts = explode('::', $filter, 2);
+					if (count($parts) === 2 and is_callable(array($parts[0], $parts[1])))
+					{
+						$var = call_user_func(array($parts[0], $parts[1]), $var);
+					}
+				}
+				// is this filter a callable local function?
+				elseif (is_string($filter) and method_exists(get_called_class(), $filter))
+				{
+					$var = forward_static_call_array(array(get_called_class(), $filter), array($var));
 				}
 
 				// is this filter a callable function?
@@ -238,7 +247,7 @@ class Security
 				$value[$k] = static::htmlentities($v, $flags, $encoding, $double_encode);
 			}
 		}
-		elseif ($value instanceof \Iterator or get_class($value) == 'stdClass')
+		elseif ($value instanceof \Iterator or (is_object($value) and get_class($value) == 'stdClass'))
 		{
 			// Add to $already_cleaned variable
 			$already_cleaned[] = $value;

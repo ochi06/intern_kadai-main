@@ -278,7 +278,8 @@ class Input
 			});
 
 			$ips = array_filter($ips, function($ip) use($exclude_reserved) {
-				return filter_var($ip, FILTER_VALIDATE_IP, $exclude_reserved ? FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE : null);
+				$flags = $exclude_reserved ? FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE : 0;
+				return filter_var($ip, FILTER_VALIDATE_IP, $flags);
 			});
 
 			if ($ips)

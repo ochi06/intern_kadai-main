@@ -1,23 +1,21 @@
 <?php
 
-namespace Controller;
-
-class Base extends \Fuel\Core\Controller_Template
+class Controller_Base extends Controller
 {
     protected $current_user = null;
 
     public function before()
     {
         parent::before();
-        if (\Fuel\Core\Session::get('user_id')) {
-            $this->current_user = \Model\User::findById(\Fuel\Core\Session::get('user_id'));
+        if (\Session::get('user_id')) {
+            $this->current_user = \Model_User::findById(\Session::get('user_id'));
         }
     }
 
     protected function requireLogin()
     {
         if (!$this->current_user) {
-            \Fuel\Core\Response::redirect('auth/login');
+            \Response::redirect('auth/login');
         }
     }
 }

@@ -1,35 +1,39 @@
 <?php
 
-namespace Model;
-
-use \Fuel\Core\DB;
-
-class Project
+class Model_Project
 {
     public static function create($user_id, $project_name, $description = '')
     {
-        return DB::insert('projects')
+        return \DB::insert('projects')
             ->set(array(
                 'user_id' => $user_id,
                 'project_name' => $project_name,
                 'description' => $description,
                 'created_at' => date('Y-m-d H:i:s'),
+                'updated_at' => date('Y-m-d H:i:s'),
             ))
             ->execute();
     }
 
     public static function findByUserId($user_id)
     {
-        $query = DB::query("SELECT * FROM projects WHERE user_id = ? ORDER BY created_at DESC", array($user_id));
-        $result = $query->execute()->as_array();
+        $result = \DB::select()
+            ->from('projects')
+            ->where('user_id', '=', $user_id)
+            ->order_by('created_at', 'desc')
+            ->execute()
+            ->as_array();
         
         return $result;
     }
 
     public static function findById($id)
     {
-        $query = DB::query("SELECT * FROM projects WHERE id = ?", array($id));
-        $result = $query->execute()->current();
+        $result = \DB::select()
+            ->from('projects')
+            ->where('id', '=', $id)
+            ->execute()
+            ->current();
         
         return $result;
     }
@@ -37,7 +41,7 @@ class Project
     public static function update($id, $data)
     {
         $data['updated_at'] = date('Y-m-d H:i:s');
-        return DB::update('projects')
+        return \DB::update('projects')
         ->set($data)
         ->where('id', '=', $id)
         ->execute();
@@ -45,7 +49,7 @@ class Project
 
     public static function delete($id)
     {
-        return DB::delete('projects')
+        return \DB::delete('projects')
             ->where('id', '=', $id)
             ->execute();
     }

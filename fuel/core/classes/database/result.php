@@ -242,7 +242,7 @@ abstract class Database_Result implements \Countable, \Iterator, \SeekableIterat
 	 *
 	 * @return  integer
 	 */
-	public function count()
+	public function count(): int
 	{
 		return $this->_total_rows;
 	}
@@ -259,7 +259,7 @@ abstract class Database_Result implements \Countable, \Iterator, \SeekableIterat
 	 *
 	 * @return boolean
 	 */
-	public function offsetExists($offset)
+	public function offsetExists($offset): bool
 	{
 		return ($offset >= 0 and $offset < $this->_total_rows);
 	}
@@ -273,7 +273,7 @@ abstract class Database_Result implements \Countable, \Iterator, \SeekableIterat
 	 *
 	 * @return  mixed
 	 */
-	public function offsetGet($offset)
+	public function offsetGet($offset): mixed
 	{
 		if ( ! $this->seek($offset))
 		{
@@ -300,7 +300,7 @@ abstract class Database_Result implements \Countable, \Iterator, \SeekableIterat
 	 *
 	 * @throws  \FuelException
 	 */
-	final public function offsetSet($offset, $value)
+	final public function offsetSet($offset, $value): void
 	{
 		throw new \FuelException('Database results are read-only');
 	}
@@ -313,7 +313,7 @@ abstract class Database_Result implements \Countable, \Iterator, \SeekableIterat
 	 *
 	 * @throws  \FuelException
 	 */
-	final public function offsetUnset($offset)
+	final public function offsetUnset($offset): void
 	{
 		throw new \FuelException('Database results are read-only');
 	}
@@ -325,7 +325,7 @@ abstract class Database_Result implements \Countable, \Iterator, \SeekableIterat
 	 *
 	 * @return  integer
 	 */
-	public function key()
+	public function key(): mixed
 	{
 		return $this->_current_row;
 	}
@@ -337,10 +337,21 @@ abstract class Database_Result implements \Countable, \Iterator, \SeekableIterat
 	 *
 	 * @return  $this
 	 */
-	public function next()
+	public function next(): void
 	{
 		++$this->_current_row;
-		return $this;
+	}
+
+	/**
+	 * Implements [Iterator::current], returns the current row.
+	 *
+	 *     $row = current($result);
+	 *
+	 * @return  mixed
+	 */
+	public function current(): mixed
+	{
+		return $this->offsetGet($this->_current_row);
 	}
 
 	/**
@@ -363,10 +374,9 @@ abstract class Database_Result implements \Countable, \Iterator, \SeekableIterat
 	 *
 	 * @return  $this
 	 */
-	public function rewind()
+	public function rewind(): void
 	{
 		$this->_current_row = 0;
-		return $this;
 	}
 
 	/**
@@ -376,7 +386,7 @@ abstract class Database_Result implements \Countable, \Iterator, \SeekableIterat
 	 *
 	 * @return  boolean
 	 */
-	public function valid()
+	public function valid(): bool
 	{
 		return $this->offsetExists($this->_current_row);
 	}
