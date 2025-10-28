@@ -6,17 +6,18 @@
 
 class Model_Todo
 {
-    public static function create($project_id, $title, $description, $start_date, $end_date)
+    public static function create($project_id, $title, $description, $started_at, $ended_at)
     {
         return \DB::insert('todos')
             ->set(array(
                 'project_id' => $project_id,
                 'title' => $title,
                 'description' => $description,
-                'start_date' => $start_date,
-                'end_date' => $end_date,
+                'started_at' => $started_at,
+                'ended_at' => $ended_at,
                 'is_completed' => 0,
                 'created_at' => date('Y-m-d H:i:s'),
+                'updated_at' => date('Y-m-d H:i:s'),
             ))
             ->execute();
     }
