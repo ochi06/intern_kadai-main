@@ -442,20 +442,20 @@
             <div class="modal-header">TODO新規作成</div>
             <form id="todoCreateForm">
                 <div class="form-group">
-                    <label>タイトル <span style="color: red;">*</span></label>
-                    <input type="text" name="title" required>
+                    <label for="todoTitle">タイトル <span style="color: red;">*</span></label>
+                    <input type="text" id="todoTitle" name="title" required>
                 </div>
                 <div class="form-group">
-                    <label>説明</label>
-                    <input type="text" name="description">
+                    <label for="todoDescription">説明</label>
+                    <input type="text" id="todoDescription" name="description">
                 </div>
                 <div class="form-group">
-                    <label>開始日</label>
-                    <input type="date" name="started_at">
+                    <label for="todoStartedAt">開始日</label>
+                    <input type="date" id="todoStartedAt" name="started_at">
                 </div>
                 <div class="form-group">
-                    <label>終了日</label>
-                    <input type="date" name="ended_at">
+                    <label for="todoEndedAt">終了日</label>
+                    <input type="date" id="todoEndedAt" name="ended_at">
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" onclick="closeModal('todoCreateModal')">キャンセル</button>
@@ -603,7 +603,7 @@
 <div id="updateModeArea" style="<?php echo ($mode == 'update') ? '' : 'display:none;'; ?>">
     <form method="POST" action="<?php echo Uri::create('todo/update/' . $project['id']); ?>" style="margin-top: 10px;">
         <div class="form-group">
-            <label>TODO選択 <span style="color: red;">*</span></label>
+            <label for="updateTodoSelect">TODO選択 <span style="color: red;">*</span></label>
             <select name="todo_id" id="updateTodoSelect" required onchange="loadTodoData(this.value)">
                 <option value="">選択してください</option>
                 <?php foreach ($all_todos as $todo): ?>
@@ -620,23 +620,23 @@
             </select>
         </div>
         <div class="form-group">
-            <label>タイトル <span style="color: red;">*</span></label>
+            <label for="updateTitle">タイトル <span style="color: red;">*</span></label>
             <input type="text" name="title" id="updateTitle" required>
         </div>
         <div class="form-group">
-            <label>説明</label>
+            <label for="updateDescription">説明</label>
             <input type="text" name="description" id="updateDescription">
         </div>
         <div class="form-group">
-            <label>開始日</label>
+            <label for="updateStartedAt">開始日</label>
             <input type="date" name="started_at" id="updateStartedAt">
         </div>
         <div class="form-group">
-            <label>終了日</label>
+            <label for="updateEndedAt">終了日</label>
             <input type="date" name="ended_at" id="updateEndedAt">
         </div>
         <div class="form-group">
-            <label>
+            <label for="updateCompleted">
                 <input type="checkbox" name="is_completed" id="updateCompleted" value="1">
                 完了
             </label>
