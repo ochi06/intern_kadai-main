@@ -6,14 +6,14 @@
 
 class Model_WorkLog
 {
-    public static function create($project_id, $record_date, $duration_minutes, $description = '')
+    public static function create($project_id, $todo_id, $record_date, $duration_minutes)
     {
         return \DB::insert('work_logs')
             ->set(array(
                 'project_id' => $project_id,
+                'todo_id' => $todo_id,
                 'record_date' => $record_date,
                 'duration_minutes' => $duration_minutes,
-                'description' => $description,
                 'created_at' => date('Y-m-d H:i:s'),
             ))
             ->execute();
