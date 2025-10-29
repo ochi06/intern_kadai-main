@@ -48,15 +48,17 @@ class Controller_Todo extends Controller_Base
         }
     }
 
-    // TODO更新
+    // TODO更新（Ajaxリクエスト）
     public function action_update($project_id = null)
     {
         $this->requireLogin();
 
         if (!$project_id)
         {
-            \Session::set_flash('error', 'プロジェクトが指定されていません');
-            \Response::redirect('home/index');
+            return $this->response(array(
+                'success' => false,
+                'message' => 'プロジェクトが指定されていません'
+            ));
         }
 
         if (\Input::method() === 'POST')
@@ -70,22 +72,25 @@ class Controller_Todo extends Controller_Base
 
             if (empty($todo_id) || empty($title))
             {
-                \Session::set_flash('error', 'TODOとタイトルを選択してください');
-            }
-            else
-            {
-                \Model_Todo::update($todo_id, array(
-                    'title' => $title,
-                    'description' => $description,
-                    'started_at' => $started_at,
-                    'ended_at' => $ended_at,
-                    'is_completed' => $is_completed,
+                return $this->response(array(
+                    'success' => false,
+                    'message' => 'TODOとタイトルを選択してください'
                 ));
-                \Session::set_flash('success', 'TODOを更新しました');
             }
-        }
 
-        \Response::redirect('project/index/' . $project_id . '?mode=update');
+            \Model_Todo::update($todo_id, array(
+                'title' => $title,
+                'description' => $description,
+                'started_at' => $started_at,
+                'ended_at' => $ended_at,
+                'is_completed' => $is_completed,
+            ));
+
+            return $this->response(array(
+                'success' => true,
+                'message' => 'TODOを更新しました'
+            ));
+        }
     }
 
     // TODO削除（Ajaxリクエスト）
