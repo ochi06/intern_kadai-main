@@ -394,6 +394,11 @@
                 <button class="btn btn-success" style="margin-top: 10px;" onclick="openTodoCreateModal()">TODO作成</button>
             </div>
 
+            <!-- TODO更新ボタン -->
+            <div id="updateModeArea" style="<?php echo ($mode == 'update') ? '' : 'display:none;'; ?>">
+                <button class="btn btn-primary" style="margin-top: 10px;" onclick="openTodoUpdateModal()">TODO更新</button>
+            </div>
+
             <!-- TODO削除ボタン -->
             <div id="deleteModeArea" style="<?php echo ($mode == 'delete') ? '' : 'display:none;'; ?>">
                 <button class="btn btn-danger" style="margin-top: 10px;" onclick="openTodoDeleteModal()">選択したTODOを削除</button>
@@ -442,24 +447,76 @@
             <div class="modal-header">TODO新規作成</div>
             <form id="todoCreateForm">
                 <div class="form-group">
-                    <label>タイトル <span style="color: red;">*</span></label>
-                    <input type="text" name="title" required>
+                    <label for="todoTitle">タイトル <span style="color: red;">*</span></label>
+                    <input type="text" id="todoTitle" name="title" required>
                 </div>
                 <div class="form-group">
-                    <label>説明</label>
-                    <input type="text" name="description">
+                    <label for="todoDescription">説明</label>
+                    <input type="text" id="todoDescription" name="description">
                 </div>
                 <div class="form-group">
-                    <label>開始日</label>
-                    <input type="date" name="started_at">
+                    <label for="todoStartedAt">開始日</label>
+                    <input type="date" id="todoStartedAt" name="started_at">
                 </div>
                 <div class="form-group">
-                    <label>終了日</label>
-                    <input type="date" name="ended_at">
+                    <label for="todoEndedAt">終了日</label>
+                    <input type="date" id="todoEndedAt" name="ended_at">
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" onclick="closeModal('todoCreateModal')">キャンセル</button>
                     <button type="submit" class="btn btn-success">作成</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- モーダル：TODO更新 -->
+    <div id="todoUpdateModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">TODO更新</div>
+            <form id="todoUpdateForm">
+                <div class="form-group">
+                    <label for="updateTodoSelect">更新するTODO選択 <span style="color: red;">*</span></label>
+                    <select id="updateTodoSelect" name="todo_id" required onchange="loadTodoData(this.value)">
+                        <option value="">選択してください</option>
+                        <?php foreach ($all_todos as $todo): ?>
+                            <option value="<?php echo $todo['id']; ?>"
+                                    data-title="<?php echo htmlspecialchars($todo['title'], ENT_QUOTES, 'UTF-8'); ?>"
+                                    data-description="<?php echo htmlspecialchars($todo['description'], ENT_QUOTES, 'UTF-8'); ?>"
+                                    data-started="<?php echo $todo['started_at']; ?>"
+                                    data-ended="<?php echo $todo['ended_at']; ?>"
+                                    data-completed="<?php echo $todo['is_completed']; ?>">
+                                <?php echo htmlspecialchars($todo['title'], ENT_QUOTES, 'UTF-8'); ?>
+                                <?php echo $todo['is_completed'] ? '（完了）' : '（未完了）'; ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="updateTitle">タイトル <span style="color: red;">*</span></label>
+                    <input type="text" id="updateTitle" name="title" required>
+                </div>
+                <div class="form-group">
+                    <label for="updateDescription">説明</label>
+                    <input type="text" id="updateDescription" name="description">
+                </div>
+                <div class="form-group">
+                    <label for="updateStartedAt">開始日</label>
+                    <input type="date" id="updateStartedAt" name="started_at">
+                </div>
+                <div class="form-group">
+                    <label for="updateEndedAt">終了日</label>
+                    <input type="date" id="updateEndedAt" name="ended_at">
+                </div>
+                <div class="form-group">
+                    <label for="updateCompleted">
+                        <input type="checkbox" id="updateCompleted" name="is_completed" value="1">
+                        完了
+                    </label>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('todoUpdateModal')">キャンセル</button>
+                    <button type="submit" class="btn btn-success">更新</button>
                 </div>
             </form>
         </div>
@@ -545,13 +602,67 @@
                 method: 'POST',
                 body: formData
             })
-            .then(res => res.json())
-            .then(data => {
-                if (data.success) {
-                    window.location.reload();
-                } else {
-                    alert(data.message);
+            .then(res => {
+                console.log('Response status:', res.status);
+                console.log('Response headers:', res.headers.get('content-type'));
+                return res.text(); // まずテキストとして取得
+            })
+            .then(text => {
+                console.log('Response text:', text);
+                try {
+                    const data = JSON.parse(text);
+                    if (data.success) {
+                        window.location.reload();
+                    } else {
+                        alert(data.message);
+                    }
+                } catch (e) {
+                    console.error('JSON parse error:', e);
+                    console.error('Response was:', text);
+                    alert('エラーが発生しました。コンソールを確認してください。');
                 }
+            })
+            .catch(error => {
+                console.error('Fetch error:', error);
+                alert('通信エラーが発生しました');
+            });
+        });
+
+        // TODO更新
+        function openTodoUpdateModal() {
+            openModal('todoUpdateModal');
+        }
+        document.getElementById('todoUpdateForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+            
+            fetch('<?php echo Uri::create('todo/update/' . $project['id']); ?>', {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => {
+                console.log('Update Response status:', res.status);
+                console.log('Update Response headers:', res.headers.get('content-type'));
+                return res.text(); // まずテキストとして取得
+            })
+            .then(text => {
+                console.log('Update Response text:', text);
+                try {
+                    const data = JSON.parse(text);
+                    if (data.success) {
+                        window.location.reload();
+                    } else {
+                        alert(data.message);
+                    }
+                } catch (e) {
+                    console.error('JSON parse error:', e);
+                    console.error('Response was:', text);
+                    alert('エラーが発生しました。コンソールを確認してください。');
+                }
+            })
+            .catch(error => {
+                console.error('Fetch error:', error);
+                alert('通信エラーが発生しました');
             });
         });
 
@@ -596,54 +707,28 @@
             
             document.getElementById('createModeArea').style.display = (mode === 'create') ? 'block' : 'none';
             document.getElementById('deleteModeArea').style.display = (mode === 'delete') ? 'block' : 'none';
+            
+            // 更新モードエリアの表示切り替え
+            const updateArea = document.getElementById('updateModeArea');
+            if (updateArea) {
+                updateArea.style.display = (mode === 'update') ? 'block' : 'none';
+            }
         }
         updateCheckboxVisibility();
 
-        // TODO更新エリア（モード切り替えボタンの下に追加
-<div id="updateModeArea" style="<?php echo ($mode == 'update') ? '' : 'display:none;'; ?>">
-    <form method="POST" action="<?php echo Uri::create('todo/update/' . $project['id']); ?>" style="margin-top: 10px;">
-        <div class="form-group">
-            <label>TODO選択 <span style="color: red;">*</span></label>
-            <select name="todo_id" id="updateTodoSelect" required onchange="loadTodoData(this.value)">
-                <option value="">選択してください</option>
-                <?php foreach ($all_todos as $todo): ?>
-                    <option value="<?php echo $todo['id']; ?>" 
-                            data-title="<?php echo htmlspecialchars($todo['title'], ENT_QUOTES, 'UTF-8'); ?>"
-                            data-description="<?php echo htmlspecialchars($todo['description'], ENT_QUOTES, 'UTF-8'); ?>"
-                            data-started="<?php echo $todo['started_at']; ?>"
-                            data-ended="<?php echo $todo['ended_at']; ?>"
-                            data-completed="<?php echo $todo['is_completed']; ?>">
-                        <?php echo htmlspecialchars($todo['title'], ENT_QUOTES, 'UTF-8'); ?>
-                        <?php echo $todo['is_completed'] ? '（完了）' : '（未完了）'; ?>
-                    </option>
-                <?php endforeach; ?>
-            </select>
-        </div>
-        <div class="form-group">
-            <label>タイトル <span style="color: red;">*</span></label>
-            <input type="text" name="title" id="updateTitle" required>
-        </div>
-        <div class="form-group">
-            <label>説明</label>
-            <input type="text" name="description" id="updateDescription">
-        </div>
-        <div class="form-group">
-            <label>開始日</label>
-            <input type="date" name="started_at" id="updateStartedAt">
-        </div>
-        <div class="form-group">
-            <label>終了日</label>
-            <input type="date" name="ended_at" id="updateEndedAt">
-        </div>
-        <div class="form-group">
-            <label>
-                <input type="checkbox" name="is_completed" id="updateCompleted" value="1">
-                完了
-            </label>
-        </div>
-        <button type="submit" class="btn btn-primary">更新</button>
-    </form>
-</div>
+        // TODO更新時のデータロード
+        function loadTodoData(todoId) {
+            const select = document.getElementById('updateTodoSelect');
+            const option = select.options[select.selectedIndex];
+            
+            if (option.value) {
+                document.getElementById('updateTitle').value = option.getAttribute('data-title');
+                document.getElementById('updateDescription').value = option.getAttribute('data-description');
+                document.getElementById('updateStartedAt').value = option.getAttribute('data-started');
+                document.getElementById('updateEndedAt').value = option.getAttribute('data-ended');
+                document.getElementById('updateCompleted').checked = option.getAttribute('data-completed') == '1';
+            }
+        }
     </script>
 </body>
 </html>
