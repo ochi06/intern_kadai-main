@@ -33,7 +33,6 @@ class Database_MySQLi_Result extends \Database_Result
 		}
 	}
 
-	#[\ReturnTypeWillChange]
 	public function seek($offset)
 	{
 		if ($this->offsetExists($offset) and $this->_result->data_seek($offset))
@@ -49,8 +48,7 @@ class Database_MySQLi_Result extends \Database_Result
 		}
 	}
 
-	#[\ReturnTypeWillChange]
-	public function current(): mixed
+	public function current()
 	{
 		if ($this->_current_row !== $this->_internal_row and ! $this->seek($this->_current_row))
 		{

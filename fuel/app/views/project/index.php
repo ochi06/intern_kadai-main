@@ -3,6 +3,7 @@
 <head>
     <meta charset="utf-8">
     <title><?php echo htmlspecialchars($project['project_name'], ENT_QUOTES, 'UTF-8'); ?> - TODOアプリ</title>
+    <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js'></script>
     <style>
         * {
             margin: 0;
@@ -277,6 +278,67 @@
             border-color: #007bff;
         }
     </style>
+    <script>
+        var calendarTodos = <?php echo json_encode($calendar_todos ?? [], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
+        var workLogs = <?php echo json_encode($work_logs ?? [], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
+    </script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            var calendarEl = document.getElementById('calendar');
+            
+            // データが配列でない場合は空配列にする
+            if (!Array.isArray(calendarTodos)) {
+                calendarTodos = [];
+            }
+            
+            // デバッグ: データを確認
+            console.log('calendarTodos:', calendarTodos);
+            
+            // TODOをFullCalendarのイベント形式に変換
+            var events = [];
+            
+            calendarTodos.forEach(function(todo) {
+                // データの存在確認
+                if (!todo.started_at || !todo.ended_at) {
+                    console.warn('Invalid todo:', todo);
+                    return;
+                }
+                
+                // 終了日に1日加算（FullCalendarは終了日を含まないため）
+                var endDate = new Date(todo.ended_at);
+                endDate.setDate(endDate.getDate() + 1);
+                var endDateString = endDate.toISOString().split('T')[0];
+                
+                events.push({
+                    title: todo.title,
+                    start: todo.started_at,
+                    end: endDateString,
+                    color: '#007bff',
+                    allDay: true
+                });
+            });
+            
+            // デバッグ: イベントを確認
+            console.log('events:', events);
+            
+            // FullCalendarの初期化
+            var calendar = new FullCalendar.Calendar(calendarEl, {
+                initialView: 'dayGridMonth',
+                locale: 'ja',
+                events: events,
+                headerToolbar: {
+                    left: 'prev,next today',
+                    center: 'title',
+                    right: ''
+                },
+                height: 'auto',
+                eventDisplay: 'block',
+                displayEventTime: false
+            });
+            
+            calendar.render();
+        });
+    </script>
 </head>
 <body>
     <!-- ヘッダー -->
@@ -286,9 +348,10 @@
     </div>
 
     <!-- カレンダーエリア（後回し） -->
-    <div class="calendar-area">
-        カレンダーエリア（後で実装）
-    </div>
+     <div class="calendar-area">
+        <div id='calendar'></div>
+     </div>
+    
 
     <!-- メッセージ -->
     <?php if (isset($success)): ?>
@@ -536,69 +599,101 @@
 
     <script>
         const projectId = <?php echo $project['id']; ?>;
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            // モーダル開閉
+            window.openModal = function(modalId) {
+                document.getElementById(modalId).classList.add('show');
+            };
+            window.closeModal = function(modalId) {
+                document.getElementById(modalId).classList.remove('show');
+            };
 
-        // モーダル開閉
-        function openModal(modalId) {
-            document.getElementById(modalId).classList.add('show');
-        }
-        function closeModal(modalId) {
-            document.getElementById(modalId).classList.remove('show');
-        }
+            // モード切り替え
+            window.switchMode = function(mode) {
+                window.location.href = '<?php echo Uri::create("project/index/" . $project["id"]); ?>?mode=' + mode;
+            };
 
-        // モード切り替え
-        function switchMode(mode) {
-            window.location.href = '<?php echo Uri::create('project/index/' . $project['id']); ?>?mode=' + mode;
-        }
-
-        // プロジェクト新規作成
-        function openProjectCreateModal() {
-            openModal('projectCreateModal');
-        }
-        document.getElementById('projectCreateForm').addEventListener('submit', function(e) {
+            // プロジェクト新規作成
+            window.openProjectCreateModal = function() {
+                openModal('projectCreateModal');
+            };
+            
+            document.getElementById('projectCreateForm').addEventListener('submit', function(e) {
             e.preventDefault();
             const formData = new FormData(this);
             
-            fetch('<?php echo Uri::create('project/create'); ?>', {
+            fetch('<?php echo Uri::create("project/create"); ?>', {
                 method: 'POST',
                 body: formData
             })
-            .then(res => res.json())
-            .then(data => {
-                if (data.success) {
-                    window.location.href = '<?php echo Uri::create('project/index/'); ?>' + data.project_id;
-                } else {
-                    alert(data.message);
+            .then(res => {
+                console.log('Project create response status:', res.status);
+                return res.text();
+            })
+            .then(text => {
+                console.log('Project create response:', text);
+                try {
+                    const data = JSON.parse(text);
+                    if (data.success) {
+                        window.location.href = '<?php echo Uri::create("project/index/"); ?>' + data.project_id;
+                    } else {
+                        alert(data.message);
+                    }
+                } catch (e) {
+                    console.error('JSON parse error:', e);
+                    console.error('Response was:', text);
+                    alert('エラーが発生しました。コンソールを確認してください。');
                 }
+            })
+            .catch(error => {
+                console.error('Fetch error:', error);
+                alert('通信エラーが発生しました');
             });
         });
 
         // プロジェクト削除
-        function openProjectDeleteModal() {
+        window.openProjectDeleteModal = function() {
             openModal('projectDeleteModal');
-        }
-        function deleteProject() {
-            fetch('<?php echo Uri::create('project/delete/' . $project['id']); ?>', {
+        };
+        window.deleteProject = function() {
+            fetch('<?php echo Uri::create("project/delete/" . $project["id"]); ?>', {
                 method: 'POST'
             })
-            .then(res => res.json())
-            .then(data => {
-                if (data.success) {
-                    window.location.href = '<?php echo Uri::create('home/index'); ?>';
-                } else {
-                    alert(data.message);
+            .then(res => {
+                console.log('Project delete response status:', res.status);
+                return res.text();
+            })
+            .then(text => {
+                console.log('Project delete response:', text);
+                try {
+                    const data = JSON.parse(text);
+                    if (data.success) {
+                        window.location.href = '<?php echo Uri::create("home/index"); ?>';
+                    } else {
+                        alert(data.message);
+                    }
+                } catch (e) {
+                    console.error('JSON parse error:', e);
+                    console.error('Response was:', text);
+                    alert('エラーが発生しました。コンソールを確認してください。');
                 }
+            })
+            .catch(error => {
+                console.error('Fetch error:', error);
+                alert('通信エラーが発生しました');
             });
-        }
+        };
 
         // TODO新規作成
-        function openTodoCreateModal() {
+        window.openTodoCreateModal = function() {
             openModal('todoCreateModal');
-        }
+        };
         document.getElementById('todoCreateForm').addEventListener('submit', function(e) {
             e.preventDefault();
             const formData = new FormData(this);
             
-            fetch('<?php echo Uri::create('todo/create/' . $project['id']); ?>', {
+            fetch('<?php echo Uri::create("todo/create/" . $project["id"]); ?>', {
                 method: 'POST',
                 body: formData
             })
@@ -629,21 +724,21 @@
         });
 
         // TODO更新
-        function openTodoUpdateModal() {
+        window.openTodoUpdateModal = function() {
             openModal('todoUpdateModal');
-        }
+        };
         document.getElementById('todoUpdateForm').addEventListener('submit', function(e) {
             e.preventDefault();
             const formData = new FormData(this);
             
-            fetch('<?php echo Uri::create('todo/update/' . $project['id']); ?>', {
+            fetch('<?php echo Uri::create("todo/update/" . $project["id"]); ?>', {
                 method: 'POST',
                 body: formData
             })
             .then(res => {
                 console.log('Update Response status:', res.status);
                 console.log('Update Response headers:', res.headers.get('content-type'));
-                return res.text(); // まずテキストとして取得
+                return res.text();
             })
             .then(text => {
                 console.log('Update Response text:', text);
@@ -667,7 +762,7 @@
         });
 
         // TODO削除
-        function openTodoDeleteModal() {
+        window.openTodoDeleteModal = function() {
             const checkboxes = document.querySelectorAll('.delete-checkbox:checked');
             if (checkboxes.length === 0) {
                 alert('削除するTODOを選択してください');
@@ -675,27 +770,42 @@
             }
             document.getElementById('todoDeleteMessage').textContent = checkboxes.length + '件のTODOを削除しますか？';
             openModal('todoDeleteModal');
-        }
-        function deleteTodos() {
+        };
+        window.deleteTodos = function() {
             const checkboxes = document.querySelectorAll('.delete-checkbox:checked');
             const todoIds = Array.from(checkboxes).map(cb => cb.value);
             
             const formData = new FormData();
             todoIds.forEach(id => formData.append('todo_ids[]', id));
             
-            fetch('<?php echo Uri::create('todo/delete/' . $project['id']); ?>', {
+            fetch('<?php echo Uri::create("todo/delete/" . $project["id"]); ?>', {
                 method: 'POST',
                 body: formData
             })
-            .then(res => res.json())
-            .then(data => {
-                if (data.success) {
-                    window.location.reload();
-                } else {
-                    alert(data.message);
+            .then(res => {
+                console.log('Delete response status:', res.status);
+                return res.text();
+            })
+            .then(text => {
+                console.log('Delete response:', text);
+                try {
+                    const data = JSON.parse(text);
+                    if (data.success) {
+                        window.location.reload();
+                    } else {
+                        alert(data.message);
+                    }
+                } catch (e) {
+                    console.error('JSON parse error:', e);
+                    console.error('Response was:', text);
+                    alert('エラーが発生しました。ログインし直してください。');
                 }
+            })
+            .catch(error => {
+                console.error('Fetch error:', error);
+                alert('通信エラーが発生しました');
             });
-        }
+        };
 
         // 削除モード時のチェックボックス表示切り替え
         function updateCheckboxVisibility() {
@@ -717,7 +827,7 @@
         updateCheckboxVisibility();
 
         // TODO更新時のデータロード
-        function loadTodoData(todoId) {
+        window.loadTodoData = function(todoId) {
             const select = document.getElementById('updateTodoSelect');
             const option = select.options[select.selectedIndex];
             
@@ -728,7 +838,9 @@
                 document.getElementById('updateEndedAt').value = option.getAttribute('data-ended');
                 document.getElementById('updateCompleted').checked = option.getAttribute('data-completed') == '1';
             }
-        }
+        };
+        
+        }); // DOMContentLoaded終了
     </script>
 </body>
 </html>
