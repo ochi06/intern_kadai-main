@@ -45,6 +45,31 @@ class Controller_Project extends Controller_Base
             }
         }
 
+        // カレンダー用データ
+        // 年月を取得（URLパラメータから、デフォルトは今月）
+        $year = \Input::get('year', date('Y'));
+        $month = \Input::get('month', date('n'));
+        
+        // その月の最初の日と最後の日
+        $first_day = "$year-$month-01";
+        $last_day = date('Y-m-t', strtotime($first_day));
+        
+        // デバッグ
+        \Log::info("Calendar date range: $first_day to $last_day");
+        
+        // カレンダーに渡す情報
+        $calendar_todos = \Model_Todo::findByProjectIdAndMonth($project_id, $first_day, $last_day);
+        
+        // デバッグ
+        \Log::info("Calendar todos count: " . count($calendar_todos));
+        foreach ($todos as $todo) {
+            \Log::info("TODO: {$todo['title']} ({$todo['started_at']} - {$todo['ended_at']})");
+        }
+        
+        $days_in_month = date('t', strtotime($first_day));
+        $first_day_of_week = date('w', strtotime($first_day));
+
+
         // モード判定
         $mode = \Input::get('mode', 'create'); // create, update, delete
 
@@ -57,6 +82,10 @@ class Controller_Project extends Controller_Base
             'all_projects' => $all_projects,
             'today_duration' => $today_duration,
             'mode' => $mode,
+            'year' => $year,  // カレンダー用
+            'month' => $month,  // カレンダー用
+            'calendar_todos' => $calendar_todos,  // カレンダー用TODO
+            'work_logs' => $work_logs,  // カレンダー用作業時間
             'error' => \Session::get_flash('error'),
             'success' => \Session::get_flash('success'),
         ));
