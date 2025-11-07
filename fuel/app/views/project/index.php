@@ -4,7 +4,8 @@
     <meta charset="utf-8">
     <title><?php echo htmlspecialchars($project['project_name'], ENT_QUOTES, 'UTF-8'); ?> - TODOアプリ</title>
     <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js'></script>
-    <script src='https://cdnjs.cloudflare.com/ajax/libs/knockout/3.5.1/knockout-min.js'></script>
+    <!-- knockout.jsを別のCDNから読み込み -->
+    <script src='https://unpkg.com/knockout@3.5.1/build/output/knockout-latest.js' onload="console.log('Knockout.js loaded from unpkg')" onerror="console.error('Failed to load knockout.js from unpkg')"></script>
     <script>
         // CSRFトークンをJavaScriptで使用可能にする
         const CSRF_TOKEN = '<?php echo \Security::fetch_token(); ?>';
@@ -374,18 +375,15 @@
     <div class="main-area">
         <!-- 左：TODOリスト -->
         <div class="section">
-            <div class="section-title">TODOリスト（未完了）</div>
-            
-            <div class="no-todos">
-                    未完了のTODOはありません
-            </div>
+            <div class="section-title">TODOリスト</div>
             <ul class="todo-list" id="todoListSection">
                 <!-- ko foreach: todos -->
                 <li class="todo-item">
                    <div class="todo-title" data-bind="text: title"></div>
                    <!-- ko if started_at || ended_at -->
                    <div class="todo-dates">
-                        開始: <span data-bind="text: $root.formatDate(started_at)"></span>                            / 終了: <span data-bind="text: $root.formatDate(ended_at)"></span>
+                        開始: <span data-bind="text: $root.formatDate(started_at)"></span>
+                        / 終了: <span data-bind="text: $root.formatDate(ended_at)"></span>
                     </div>
                    <!-- /ko -->
                 </li>
@@ -393,23 +391,95 @@
             </ul>
 
             <script>
-                function TodoListViewModel(){
-                    var self = this;
+                // knockout.jsが読み込まれるまで待機
+                function initTodoList() {
+                    if (typeof ko === 'undefined') {
+                        console.log('Waiting for knockout.js to load...');
+                        setTimeout(initTodoList, 100);
+                        return;
+                    }
+                    
+                    console.log('Knockout.js loaded, initializing...');
+                    
+                    function TodoListViewModel(){
+                        var self = this;
 
-                    self.formatDate = ko.observableArray(<?php echo json_encode($todos); ?>);
+                        // TODOリストのobservableArray
+                        var todosData = <?php echo json_encode($todos); ?>;
+                        console.log('TODOs data from PHP:', todosData);
+                        self.todos = ko.observableArray(todosData);
+                        console.log('TODOs observable array:', self.todos());
 
-                    self.formatDate = function(dateString) {
-                        if(!dateString) return '';
-                        var date = new Date(dateString);
-                        return date.getFullYear() + '/' + (date.getMonth() + 1) + '/' + date.getDate();
-                    };
+                        // 日付フォーマット関数
+                        self.formatDate = function(dateString) {
+                            if(!dateString) return '';
+                            var date = new Date(dateString);
+                            return date.getFullYear() + '/' + (date.getMonth() + 1) + '/' + date.getDate();
+                        };
 
-                    self.addTodo = function(newTodo) {
-                        self.todos.push(newTodo);
-                    };
+                        // TODO追加関数
+                        self.addTodo = function(newTodo) {
+                            self.todos.push(newTodo);
+                        };
+
+                        self.selectedTodos = ko.observableArray([]);
+
+                        self.toggleSelection = function(todo) {
+                            if(self.selectedTOdos.indexOf(todo) >= 0){
+                                self.selectedTodos.remove(todo);
+                            }else{
+                                self.selectedTodos.push(todo);
+                            };
+                        }
+                        self.selectedTodos = ko.computed(function() {
+                            return self.selectedTodos().length > 0;
+                        });
+
+                        self.currentMode = ko.observable('<?php echo $mode ?? "create"; ?>');
+                        self.isDeleteMode = ko.computed(function() {
+                            return self.currentMode() === 'delete';
+                        }) ;
+
+                        // TODO削除関数
+                        self.deleteSelected = function() {
+                            const todoIds = self.selectedTodos().map(t = t.id);
+                            const formData = new FormData();
+                            todoIds.foreach(id => formData.append('todo_ids[]', id));
+                            formdata.append('fuel_csrf_token', CSRF_TOKEN);
+
+                            fetch('削除URL', {
+                                method: 'POST',
+                                body: formData
+                            })
+                            .then(res => res.json())
+                            .then(data => {
+                                if (data.success) {
+                                    self.selectedTodos().forEach(todo => {
+                                        self.todos.remove(todo);
+                                    });
+                                    self.selectedTodos.removeAll();
+                                }
+                            });
+                        };
+                    }
+
+
+                    self.openDeleteModal = function() {
+                        if(self.selectedTodos().length === 0) {
+                            alert('削除するTODOを選択してください');
+                            return;
+                        }
+                        openModal('todoDeleteModal')
+                    }
+                    ko.applyBindings(new TodoListViewModel(), document.getElementById('todoListSection'));
                 }
-
-                ko.applyBindings(new TodoListViewModel(), document.getElementById('todoListSection'));
+                
+                // DOMが読み込まれたら初期化
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', initTodoList);
+                } else {
+                    initTodoList();
+                }
             </script>
         </div>
 
@@ -456,13 +526,13 @@
             </ul>
             
             <div class="btn-group">
-                <button class="btn btn-success" onclick="openProjectCreateModal()">新規作成</button>
+                <button class="btn btn-success" onclick="openProjectCreateModal()">作成</button>
                 <button class="btn btn-danger" onclick="openProjectDeleteModal()">削除</button>
             </div>
 
             <div class="section-title" style="margin-top: 20px;">TODO操作</div>
             <div class="mode-buttons">
-                <button class="mode-btn <?php echo ($mode == 'create') ? 'active' : ''; ?>" onclick="switchMode('create')">新規作成</button>
+                <button class="mode-btn <?php echo ($mode == 'create') ? 'active' : ''; ?>" onclick="switchMode('create')">作成</button>
                 <button class="mode-btn <?php echo ($mode == 'update') ? 'active' : ''; ?>" onclick="switchMode('update')">更新</button>
                 <button class="mode-btn <?php echo ($mode == 'delete') ? 'active' : ''; ?>" onclick="switchMode('delete')">削除</button>
             </div>
@@ -479,7 +549,7 @@
 
             <!-- TODO削除ボタン -->
             <div id="deleteModeArea" style="<?php echo ($mode == 'delete') ? '' : 'display:none;'; ?>">
-                <button class="btn btn-danger" style="margin-top: 10px;" onclick="openTodoDeleteModal()">選択したTODOを削除</button>
+                <button class="btn btn-danger" style="margin-top: 10px;" data-bind="click: openDeleteModal()">TODO削除</button>
             </div>
         </div>
     </div>
@@ -602,6 +672,10 @@
             </form>
         </div>
     </div>
+
+    <!-- ko if: $root.isDeleteMode -->
+     <input type="checkbox" data-bind="checkboxValue: $data, checked: $root.selectedTodos" class="todo-checkbox" >
+    <!-- ko -->
 
     <!-- モーダル：TODO削除確認 -->
     <div id="todoDeleteModal" class="modal">
@@ -789,41 +863,41 @@
             document.getElementById('todoDeleteMessage').textContent = checkboxes.length + '件のTODOを削除しますか？';
             openModal('todoDeleteModal');
         };
-        window.deleteTodos = function() {
-            const checkboxes = document.querySelectorAll('.delete-checkbox:checked');
-            const todoIds = Array.from(checkboxes).map(cb => cb.value);
+        // window.deleteTodos = function() {
+        //     const checkboxes = document.querySelectorAll('.delete-checkbox:checked');
+        //     const todoIds = Array.from(checkboxes).map(cb => cb.value);
             
-            const formData = new FormData();
-            todoIds.forEach(id => formData.append('todo_ids[]', id));
+        //     const formData = new FormData();
+        //     todoIds.forEach(id => formData.append('todo_ids[]', id));
             
-            fetch('<?php echo Uri::create("todo/delete/" . $project["id"]); ?>', {
-                method: 'POST',
-                body: formData
-            })
-            .then(res => {
-                console.log('Delete response status:', res.status);
-                return res.text();
-            })
-            .then(text => {
-                console.log('Delete response:', text);
-                try {
-                    const data = JSON.parse(text);
-                    if (data.success) {
-                        window.location.reload();
-                    } else {
-                        alert(data.message);
-                    }
-                } catch (e) {
-                    console.error('JSON parse error:', e);
-                    console.error('Response was:', text);
-                    alert('エラーが発生しました。ログインし直してください。');
-                }
-            })
-            .catch(error => {
-                console.error('Fetch error:', error);
-                alert('通信エラーが発生しました');
-            });
-        };
+        //     fetch('<?php echo Uri::create("todo/delete/" . $project["id"]); ?>', {
+        //         method: 'POST',
+        //         body: formData
+        //     })
+        //     .then(res => {
+        //         console.log('Delete response status:', res.status);
+        //         return res.text();
+        //     })
+        //     .then(text => {
+        //         console.log('Delete response:', text);
+        //         try {
+        //             const data = JSON.parse(text);
+        //             if (data.success) {
+        //                 window.location.reload();
+        //             } else {
+        //                 alert(data.message);
+        //             }
+        //         } catch (e) {
+        //             console.error('JSON parse error:', e);
+        //             console.error('Response was:', text);
+        //             alert('エラーが発生しました。ログインし直してください。');
+        //         }
+        //     })
+        //     .catch(error => {
+        //         console.error('Fetch error:', error);
+        //         alert('通信エラーが発生しました');
+        //     });
+        // };
 
         // 削除モード時のチェックボックス表示切り替え
         function updateCheckboxVisibility() {
