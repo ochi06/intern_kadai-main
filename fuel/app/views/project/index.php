@@ -411,6 +411,7 @@
 
                 ko.applyBindings(new TodoListViewModel(), document.getElementById('todoListSection'));
             </script>
+        </div>
 
         <!-- 中央：作業時間記録 -->
         <div class="section">
