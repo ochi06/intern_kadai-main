@@ -60,6 +60,7 @@
     <?php endif; ?>
 
     <form method="post" action="<?php echo Uri::create('auth/login'); ?>">
+        <?php echo \Form::csrf(); ?>
         <div class="form-group">
             <label for="mail_address">メールアドレス:</label>
             <input type="email" id="mail_address" name="mail_address" required>

@@ -61,6 +61,7 @@
     <?php endif; ?>
     
     <form method="POST" action="<?php echo Uri::create('auth/register'); ?>">
+        <?php echo \Form::csrf(); ?>
         <div class="form-group">
             <label for="user_name">ユーザー名:</label>
             <input type="text" id="user_name" name="user_name" required>

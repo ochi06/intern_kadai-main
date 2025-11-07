@@ -5,6 +5,10 @@
     <title><?php echo htmlspecialchars($project['project_name'], ENT_QUOTES, 'UTF-8'); ?> - TODOアプリ</title>
     <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js'></script>
     <script src='https://cdnjs.cloudflare.com/ajax/libs/knockout/3.5.1/knockout-min.js'></script>
+    <script>
+        // CSRFトークンをJavaScriptで使用可能にする
+        const CSRF_TOKEN = '<?php echo \Security::fetch_token(); ?>';
+    </script>
     <style>
         * {
             margin: 0;
@@ -416,6 +420,7 @@
             </div>
             
             <form method="POST" action="<?php echo Uri::create('worklog/create/' . $project['id']); ?>">
+                <?php echo \Form::csrf(); ?>
                 <div class="form-group">
                     <label>作業時間（分）</label>
                     <input type="number" name="duration" min="1" required>
@@ -483,6 +488,7 @@
         <div class="modal-content">
             <div class="modal-header">新規プロジェクト作成</div>
             <form id="projectCreateForm">
+                <input type="hidden" name="fuel_csrf_token" value="<?php echo \Security::fetch_token(); ?>">
                 <div class="form-group">
                     <label>プロジェクト名 <span style="color: red;">*</span></label>
                     <input type="text" name="project_name" required>
@@ -518,6 +524,7 @@
         <div class="modal-content">
             <div class="modal-header">TODO新規作成</div>
             <form id="todoCreateForm">
+                <input type="hidden" name="fuel_csrf_token" value="<?php echo \Security::fetch_token(); ?>">
                 <div class="form-group">
                     <label for="todoTitle">タイトル <span style="color: red;">*</span></label>
                     <input type="text" id="todoTitle" name="title" required>
@@ -547,6 +554,7 @@
         <div class="modal-content">
             <div class="modal-header">TODO更新</div>
             <form id="todoUpdateForm">
+                <input type="hidden" name="fuel_csrf_token" value="<?php echo \Security::fetch_token(); ?>">
                 <div class="form-group">
                     <label for="updateTodoSelect">更新するTODO選択 <span style="color: red;">*</span></label>
                     <select id="updateTodoSelect" name="todo_id" required onchange="loadTodoData(this.value)">

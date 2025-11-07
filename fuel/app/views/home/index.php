@@ -268,6 +268,7 @@
                 <h2>新規プロジェクト作成</h2>
             </div>
             <form id="createProjectForm">
+                <input type="hidden" name="fuel_csrf_token" value="<?php echo \Security::fetch_token(); ?>">
                 <div class="form-group">
                     <label for="project_name">プロジェクト名 <span style="color: red;">*</span></label>
                     <input type="text" id="project_name" name="project_name" required>
