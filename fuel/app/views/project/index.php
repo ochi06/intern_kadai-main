@@ -379,15 +379,20 @@
             <ul class="todo-list" id="todoListSection">
                 <!-- ko foreach: todos -->
                 <li class="todo-item">
+                   <!-- ko if: $root.isDeleteMode -->
+                   <input type="checkbox" 
+                          data-bind="checkedValue: $data, checked: $root.selectedTodos" 
+                          class="todo-checkbox">
+                   <!-- /ko -->
                    <div class="todo-title" data-bind="text: title"></div>
-                   <!-- ko if started_at || ended_at -->
+                   <!-- ko if: started_at || ended_at -->
                    <div class="todo-dates">
                         開始: <span data-bind="text: $root.formatDate(started_at)"></span>
                         / 終了: <span data-bind="text: $root.formatDate(ended_at)"></span>
                     </div>
                    <!-- /ko -->
                 </li>
-            <!-- /ko -->
+                <!-- /ko -->
             </ul>
 
             <script>
@@ -422,56 +427,102 @@
                             self.todos.push(newTodo);
                         };
 
+                        // 選択されたTODOリスト
                         self.selectedTodos = ko.observableArray([]);
 
+                        // TODO選択/解除のトグル
                         self.toggleSelection = function(todo) {
-                            if(self.selectedTOdos.indexOf(todo) >= 0){
+                            if(self.selectedTodos.indexOf(todo) >= 0){
                                 self.selectedTodos.remove(todo);
                             }else{
                                 self.selectedTodos.push(todo);
-                            };
-                        }
-                        self.selectedTodos = ko.computed(function() {
+                            }
+                        };
+
+                        // 選択されたTODOがあるかどうか
+                        self.hasSelectedTodos = ko.computed(function() {
                             return self.selectedTodos().length > 0;
                         });
 
+                        // 現在のモード
                         self.currentMode = ko.observable('<?php echo $mode ?? "create"; ?>');
                         self.isDeleteMode = ko.computed(function() {
                             return self.currentMode() === 'delete';
-                        }) ;
+                        });
 
-                        // TODO削除関数
+                        // モーダル表示状態
+                        self.showDeleteModal = ko.observable(false);
+
+                        // 削除確認メッセージ
+                        self.deleteMessage = ko.computed(function() {
+                            var count = self.selectedTodos().length;
+                            return count + '件のTODOを削除しますか？';
+                        });
+
+                        // TODO削除モーダルを開く
+                        self.openDeleteModal = function() {
+                            if(self.selectedTodos().length === 0) {
+                                alert('削除するTODOを選択してください');
+                                return;
+                            }
+                            self.showDeleteModal(true);
+                        };
+
+                        // TODO削除モーダルを閉じる
+                        self.closeDeleteModal = function() {
+                            self.showDeleteModal(false);
+                        };
+
+                        // TODO削除実行
                         self.deleteSelected = function() {
-                            const todoIds = self.selectedTodos().map(t = t.id);
-                            const formData = new FormData();
-                            todoIds.foreach(id => formData.append('todo_ids[]', id));
-                            formdata.append('fuel_csrf_token', CSRF_TOKEN);
+                            var todoIds = self.selectedTodos().map(function(t) { return t.id; });
+                            var formData = new FormData();
+                            todoIds.forEach(function(id) { 
+                                formData.append('todo_ids[]', id); 
+                            });
+                            formData.append('fuel_csrf_token', CSRF_TOKEN);
 
-                            fetch('削除URL', {
+                            fetch('<?php echo Uri::create("todo/delete/" . $project["id"]); ?>', {
                                 method: 'POST',
                                 body: formData
                             })
-                            .then(res => res.json())
-                            .then(data => {
+                            .then(function(res) { return res.json(); })
+                            .then(function(data) {
                                 if (data.success) {
-                                    self.selectedTodos().forEach(todo => {
+                                    self.selectedTodos().forEach(function(todo) {
                                         self.todos.remove(todo);
                                     });
                                     self.selectedTodos.removeAll();
+                                    self.closeDeleteModal();
+                                    alert('TODOを削除しました');
+                                } else {
+                                    alert(data.message || '削除に失敗しました');
                                 }
+                            })
+                            .catch(function(error) {
+                                console.error('Delete error:', error);
+                                alert('通信エラーが発生しました');
                             });
                         };
                     }
 
-
-                    self.openDeleteModal = function() {
-                        if(self.selectedTodos().length === 0) {
-                            alert('削除するTODOを選択してください');
-                            return;
-                        }
-                        openModal('todoDeleteModal')
+                    // ViewModelインスタンスを作成
+                    var viewModel = new TodoListViewModel();
+                    
+                    // TODOリストにバインディング適用
+                    ko.applyBindings(viewModel, document.getElementById('todoListSection'));
+                    
+                    // 削除ボタンエリアにもバインディング適用
+                    var deleteModeArea = document.getElementById('deleteModeArea');
+                    if (deleteModeArea) {
+                        ko.applyBindings(viewModel, deleteModeArea);
                     }
-                    ko.applyBindings(new TodoListViewModel(), document.getElementById('todoListSection'));
+                    
+                    // 削除モーダルにもバインディング適用
+                    var deleteModalEl = document.getElementById('todoDeleteModal');
+                    if (deleteModalEl) {
+                        ko.applyBindings(viewModel, deleteModalEl);
+                    }
                 }
                 
                 // DOMが読み込まれたら初期化
@@ -549,7 +600,7 @@
 
             <!-- TODO削除ボタン -->
             <div id="deleteModeArea" style="<?php echo ($mode == 'delete') ? '' : 'display:none;'; ?>">
-                <button class="btn btn-danger" style="margin-top: 10px;" data-bind="click: openDeleteModal()">TODO削除</button>
+                <button class="btn btn-danger" style="margin-top: 10px;" data-bind="click: openDeleteModal">TODO削除</button>
             </div>
         </div>
     </div>
@@ -673,18 +724,14 @@
         </div>
     </div>
 
-    <!-- ko if: $root.isDeleteMode -->
-     <input type="checkbox" data-bind="checkboxValue: $data, checked: $root.selectedTodos" class="todo-checkbox" >
-    <!-- ko -->
-
     <!-- モーダル：TODO削除確認 -->
-    <div id="todoDeleteModal" class="modal">
+    <div id="todoDeleteModal" class="modal" data-bind="css: { 'show': showDeleteModal }">
         <div class="modal-content">
             <div class="modal-header">TODO削除確認</div>
-            <p id="todoDeleteMessage">選択したTODOを削除しますか？</p>
+            <p data-bind="text: deleteMessage"></p>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" onclick="closeModal('todoDeleteModal')">キャンセル</button>
-                <button type="button" class="btn btn-danger" onclick="deleteTodos()">削除</button>
+                <button type="button" class="btn btn-secondary" data-bind="click: closeDeleteModal">キャンセル</button>
+                <button type="button" class="btn btn-danger" data-bind="click: deleteSelected">削除</button>
             </div>
         </div>
     </div>
@@ -854,50 +901,7 @@
         });
 
         // TODO削除
-        window.openTodoDeleteModal = function() {
-            const checkboxes = document.querySelectorAll('.delete-checkbox:checked');
-            if (checkboxes.length === 0) {
-                alert('削除するTODOを選択してください');
-                return;
-            }
-            document.getElementById('todoDeleteMessage').textContent = checkboxes.length + '件のTODOを削除しますか？';
-            openModal('todoDeleteModal');
-        };
-        // window.deleteTodos = function() {
-        //     const checkboxes = document.querySelectorAll('.delete-checkbox:checked');
-        //     const todoIds = Array.from(checkboxes).map(cb => cb.value);
-            
-        //     const formData = new FormData();
-        //     todoIds.forEach(id => formData.append('todo_ids[]', id));
-            
-        //     fetch('<?php echo Uri::create("todo/delete/" . $project["id"]); ?>', {
-        //         method: 'POST',
-        //         body: formData
-        //     })
-        //     .then(res => {
-        //         console.log('Delete response status:', res.status);
-        //         return res.text();
-        //     })
-        //     .then(text => {
-        //         console.log('Delete response:', text);
-        //         try {
-        //             const data = JSON.parse(text);
-        //             if (data.success) {
-        //                 window.location.reload();
-        //             } else {
-        //                 alert(data.message);
-        //             }
-        //         } catch (e) {
-        //             console.error('JSON parse error:', e);
-        //             console.error('Response was:', text);
-        //             alert('エラーが発生しました。ログインし直してください。');
-        //         }
-        //     })
-        //     .catch(error => {
-        //         console.error('Fetch error:', error);
-        //         alert('通信エラーが発生しました');
-        //     });
-        // };
+        // 従来の削除関数は削除され、Knockout.jsのViewModelに統合されました
 
         // 削除モード時のチェックボックス表示切り替え
         function updateCheckboxVisibility() {
