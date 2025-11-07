@@ -4,6 +4,7 @@
     <meta charset="utf-8">
     <title><?php echo htmlspecialchars($project['project_name'], ENT_QUOTES, 'UTF-8'); ?> - TODOアプリ</title>
     <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js'></script>
+    <script src='https://cdnjs.cloudflare.com/ajax/libs/knockout/3.5.1/knockout-min.js'></script>
     <style>
         * {
             margin: 0;
@@ -371,33 +372,41 @@
         <div class="section">
             <div class="section-title">TODOリスト（未完了）</div>
             
-            <?php if (empty($todos)): ?>
-                <div class="no-todos">
+            <div class="no-todos">
                     未完了のTODOはありません
-                </div>
-            <?php else: ?>
-                <ul class="todo-list" id="todoList">
-                    <?php foreach ($todos as $todo): ?>
-                        <li class="todo-item">
-                            <input type="checkbox" class="todo-checkbox delete-checkbox" value="<?php echo $todo['id']; ?>" style="display: none;">
-                            <div style="flex: 1;">
-                                <div class="todo-title"><?php echo htmlspecialchars($todo['title'], ENT_QUOTES, 'UTF-8'); ?></div>
-                                <?php if ($todo['started_at'] || $todo['ended_at']): ?>
-                                    <div class="todo-dates">
-                                        <?php if ($todo['started_at']): ?>
-                                            開始: <?php echo date('Y/m/d', strtotime($todo['started_at'])); ?>
-                                        <?php endif; ?>
-                                        <?php if ($todo['ended_at']): ?>
-                                            / 終了: <?php echo date('Y/m/d', strtotime($todo['ended_at'])); ?>
-                                        <?php endif; ?>
-                                    </div>
-                                <?php endif; ?>
-                            </div>
-                        </li>
-                    <?php endforeach; ?>
-                </ul>
-            <?php endif; ?>
-        </div>
+            </div>
+            <ul class="todo-list" id="todoListSection">
+                <!-- ko foreach: todos -->
+                <li class="todo-item">
+                   <div class="todo-title" data-bind="text: title"></div>
+                   <!-- ko if started_at || ended_at -->
+                   <div class="todo-dates">
+                        開始: <span data-bind="text: $root.formatDate(started_at)"></span>                            / 終了: <span data-bind="text: $root.formatDate(ended_at)"></span>
+                    </div>
+                   <!-- /ko -->
+                </li>
+            <!-- /ko -->
+            </ul>
+
+            <script>
+                function TodoListViewModel(){
+                    var self = this;
+
+                    self.formatDate = ko.observableArray(<?php echo json_encode($todos); ?>);
+
+                    self.formatDate = function(dateString) {
+                        if(!dateString) return '';
+                        var date = new Date(dateString);
+                        return date.getFullYear() + '/' + (date.getMonth() + 1) + '/' + date.getDate();
+                    };
+
+                    self.addTodo = function(newTodo) {
+                        self.todos.push(newTodo);
+                    };
+                }
+
+                ko.applyBindings(new TodoListViewModel(), document.getElementById('todoListSection'));
+            </script>
 
         <!-- 中央：作業時間記録 -->
         <div class="section">
