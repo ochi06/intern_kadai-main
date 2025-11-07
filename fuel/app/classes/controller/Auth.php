@@ -15,6 +15,9 @@ class Controller_Auth extends Controller
 
             if ($user && password_verify($password, $user['password']))
             {
+                // セッション固定攻撃対策: ログイン時にセッションIDを再生成
+                \Session::instance()->rotate();
+                
                 \Session::set('user_id', $user['id']);
                 \Response::redirect('home/index');
             }
@@ -37,8 +40,42 @@ class Controller_Auth extends Controller
             $mail_address = \Input::post('mail_address');
             $password = \Input::post('password');
 
-            \Model_User::create($user_name, $mail_address, $password);
-            \Response::redirect('auth/login');
+            // 入力バリデーション
+            $val = \Validation::forge();
+            
+            $val->add('user_name', 'ユーザー名')
+                ->add_rule('required')
+                ->add_rule('max_length', 10);
+            
+            $val->add('mail_address', 'メールアドレス')
+                ->add_rule('required')
+                ->add_rule('valid_email')
+                ->add_rule('max_length', 50);
+            
+            $val->add('password', 'パスワード')
+                ->add_rule('required')
+                ->add_rule('min_length', 8)
+                ->add_rule('max_length', 20);
+            
+            if ($val->run())
+            {
+                // メールアドレスの重複チェック
+                if (\Model_User::findByEmail($mail_address))
+                {
+                    return \View::forge('auth/register', array(
+                        'error' => 'このメールアドレスは既に登録されています',
+                    ));
+                }
+                
+                \Model_User::create($user_name, $mail_address, $password);
+                \Response::redirect('auth/login');
+            }
+            else
+            {
+                return \View::forge('auth/register', array(
+                    'error' => $val->error(),
+                ));
+            }
         }
 
         return \View::forge('auth/register');
