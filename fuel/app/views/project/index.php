@@ -285,72 +285,15 @@
         }
     </style>
     <script>
-        var calendarTodos = <?php echo json_encode($calendar_todos ?? [], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
+        // PHP からデータを受け取る（現在は使用されていませんが、将来の拡張用に保持）
         var workLogs = <?php echo json_encode($work_logs ?? [], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
-    </script>
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            var calendarEl = document.getElementById('calendar');
-            
-            // データが配列でない場合は空配列にする
-            if (!Array.isArray(calendarTodos)) {
-                calendarTodos = [];
-            }
-            
-            // デバッグ: データを確認
-            console.log('calendarTodos:', calendarTodos);
-            
-            // TODOをFullCalendarのイベント形式に変換
-            var events = [];
-            
-            calendarTodos.forEach(function(todo) {
-                // データの存在確認
-                if (!todo.started_at || !todo.ended_at) {
-                    console.warn('Invalid todo:', todo);
-                    return;
-                }
-                
-                // 終了日に1日加算（FullCalendarは終了日を含まないため）
-                var endDate = new Date(todo.ended_at);
-                endDate.setDate(endDate.getDate() + 1);
-                var endDateString = endDate.toISOString().split('T')[0];
-                
-                events.push({
-                    title: todo.title,
-                    start: todo.started_at,
-                    end: endDateString,
-                    color: '#007bff',
-                    allDay: true
-                });
-            });
-            
-            // デバッグ: イベントを確認
-            console.log('events:', events);
-            
-            // FullCalendarの初期化
-            var calendar = new FullCalendar.Calendar(calendarEl, {
-                initialView: 'dayGridMonth',
-                locale: 'ja',
-                events: events,
-                headerToolbar: {
-                    left: 'prev,next today',
-                    center: 'title',
-                    right: ''
-                },
-                height: 'auto',
-                eventDisplay: 'block',
-                displayEventTime: false
-            });
-            
-            calendar.render();
-        });
     </script>
 </head>
 <body>
     <!-- ヘッダー -->
     <div class="header">
         <h1><?php echo htmlspecialchars($project['project_name'], ENT_QUOTES, 'UTF-8'); ?></h1>
-        <a href="<?php echo Uri::create('home/index'); ?>" class="home-btn">ホームへ</a>
+        <a href="<?php echo \Uri::create('home/index'); ?>" class="home-btn">ホームへ</a>
     </div>
 
     <!-- カレンダーエリア（後回し） -->
@@ -406,7 +349,8 @@
                     
                     console.log('Knockout.js loaded, initializing...');
                     
-                    function TodoListViewModel(){
+                    // ProjectViewModel: TODOリストとカレンダーを統合管理
+                    function ProjectViewModel(){
                         var self = this;
 
                         // TODOリストのobservableArray
@@ -414,6 +358,35 @@
                         console.log('TODOs data from PHP:', todosData);
                         self.todos = ko.observableArray(todosData);
                         console.log('TODOs observable array:', self.todos());
+
+                        // カレンダーインスタンスを保持
+                        self.calendarInstance = null;
+
+                        // カレンダー用TODOデータ（日付が設定されているもののみ）
+                        self.calendarTodos = ko.computed(function() {
+                            return self.todos().filter(function(todo) {
+                                return todo.started_at && todo.ended_at;
+                            });
+                        });
+
+                        // FullCalendar用イベント形式に変換
+                        self.calendarEvents = ko.computed(function() {
+                            return self.calendarTodos().map(function(todo) {
+                                // 終了日に1日加算（FullCalendarは終了日を含まないため）
+                                var endDate = new Date(todo.ended_at);
+                                endDate.setDate(endDate.getDate() + 1);
+                                var endDateString = endDate.toISOString().split('T')[0];
+                                
+                                return {
+                                    id: todo.id,
+                                    title: todo.title,
+                                    start: todo.started_at,
+                                    end: endDateString,
+                                    color: '#007bff',
+                                    allDay: true
+                                };
+                            });
+                        });
 
                         // 日付フォーマット関数
                         self.formatDate = function(dateString) {
@@ -504,10 +477,73 @@
                                 alert('通信エラーが発生しました');
                             });
                         };
+
+                        // カレンダー初期化
+                        self.initCalendar = function() {
+                            var calendarEl = document.getElementById('calendar');
+                            if (!calendarEl) {
+                                console.warn('Calendar element not found');
+                                return;
+                            }
+                            
+                            console.log('Initializing FullCalendar...');
+                            console.log('Initial events:', self.calendarEvents());
+                            
+                            self.calendarInstance = new FullCalendar.Calendar(calendarEl, {
+                                initialView: 'dayGridMonth',
+                                locale: 'ja',
+                                events: self.calendarEvents(),
+                                headerToolbar: {
+                                    left: 'prev,next today',
+                                    center: 'title',
+                                    right: ''
+                                },
+                                height: 'auto',
+                                eventDisplay: 'block',
+                                displayEventTime: false
+                            });
+                            
+                            self.calendarInstance.render();
+                            console.log('FullCalendar initialized');
+                        };
+
+                        // カレンダー更新（TODOの変更を反映）
+                        self.updateCalendar = function() {
+                            if (!self.calendarInstance) {
+                                console.warn('Calendar instance not initialized');
+                                return;
+                            }
+                            
+                            console.log('Updating calendar events...');
+                            
+                            // 既存のイベントをすべて削除
+                            var existingEvents = self.calendarInstance.getEvents();
+                            existingEvents.forEach(function(event) {
+                                event.remove();
+                            });
+                            
+                            // 新しいイベントを追加
+                            var newEvents = self.calendarEvents();
+                            console.log('New events:', newEvents);
+                            newEvents.forEach(function(event) {
+                                self.calendarInstance.addEvent(event);
+                            });
+                            
+                            console.log('Calendar updated');
+                        };
+
+                        // TODOリストの変更を監視してカレンダーを自動更新
+                        self.calendarTodos.subscribe(function(newTodos) {
+                            console.log('Calendar todos changed:', newTodos.length);
+                            self.updateCalendar();
+                        });
                     }
 
                     // ViewModelインスタンスを作成
-                    var viewModel = new TodoListViewModel();
+                    var viewModel = new ProjectViewModel();
+                    
+                    // グローバルにアクセス可能にする（TODO作成・更新時に使用）
+                    window.projectViewModel = viewModel;
                     
                     // TODOリストにバインディング適用
                     ko.applyBindings(viewModel, document.getElementById('todoListSection'));
@@ -523,6 +559,9 @@
                     if (deleteModalEl) {
                         ko.applyBindings(viewModel, deleteModalEl);
                     }
+
+                    // カレンダーを初期化
+                    viewModel.initCalendar();
                 }
                 
                 // DOMが読み込まれたら初期化
@@ -846,7 +885,17 @@
                 try {
                     const data = JSON.parse(text);
                     if (data.success) {
-                        window.location.reload();
+                        // ページリロードせずに、ViewModelに新しいTODOを追加
+                        if (window.projectViewModel && data.todo) {
+                            window.projectViewModel.todos.push(data.todo);
+                            closeModal('todoCreateModal');
+                            // フォームをリセット
+                            document.getElementById('todoCreateForm').reset();
+                            alert('TODOを作成しました');
+                        } else {
+                            // ViewModelがない場合や、TODOデータが返されない場合はリロード
+                            window.location.reload();
+                        }
                     } else {
                         alert(data.message);
                     }
@@ -884,7 +933,20 @@
                 try {
                     const data = JSON.parse(text);
                     if (data.success) {
-                        window.location.reload();
+                        // ページリロードせずに、ViewModelの該当TODOを更新
+                        if (window.projectViewModel && data.todo) {
+                            var todoId = data.todo.id;
+                            var todos = window.projectViewModel.todos();
+                            var index = todos.findIndex(t => t.id == todoId);
+                            if (index !== -1) {
+                                window.projectViewModel.todos.splice(index, 1, data.todo);
+                            }
+                            closeModal('todoUpdateModal');
+                            alert('TODOを更新しました');
+                        } else {
+                            // ViewModelがない場合や、TODOデータが返されない場合はリロード
+                            window.location.reload();
+                        }
                     } else {
                         alert(data.message);
                     }
