@@ -4,7 +4,8 @@
     <meta charset="utf-8">
     <title><?php echo htmlspecialchars($project['project_name'], ENT_QUOTES, 'UTF-8'); ?> - TODOアプリ</title>
     <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js'></script>
-    <script src='https://cdnjs.cloudflare.com/ajax/libs/knockout/3.5.1/knockout-min.js'></script>
+    <!-- knockout.jsを別のCDNから読み込み -->
+    <script src='https://unpkg.com/knockout@3.5.1/build/output/knockout-latest.js' onload="console.log('Knockout.js loaded from unpkg')" onerror="console.error('Failed to load knockout.js from unpkg')"></script>
     <script>
         // CSRFトークンをJavaScriptで使用可能にする
         const CSRF_TOKEN = '<?php echo \Security::fetch_token(); ?>';
@@ -284,72 +285,15 @@
         }
     </style>
     <script>
-        var calendarTodos = <?php echo json_encode($calendar_todos ?? [], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
+        // PHP からデータを受け取る（現在は使用されていませんが、将来の拡張用に保持）
         var workLogs = <?php echo json_encode($work_logs ?? [], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
-    </script>
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            var calendarEl = document.getElementById('calendar');
-            
-            // データが配列でない場合は空配列にする
-            if (!Array.isArray(calendarTodos)) {
-                calendarTodos = [];
-            }
-            
-            // デバッグ: データを確認
-            console.log('calendarTodos:', calendarTodos);
-            
-            // TODOをFullCalendarのイベント形式に変換
-            var events = [];
-            
-            calendarTodos.forEach(function(todo) {
-                // データの存在確認
-                if (!todo.started_at || !todo.ended_at) {
-                    console.warn('Invalid todo:', todo);
-                    return;
-                }
-                
-                // 終了日に1日加算（FullCalendarは終了日を含まないため）
-                var endDate = new Date(todo.ended_at);
-                endDate.setDate(endDate.getDate() + 1);
-                var endDateString = endDate.toISOString().split('T')[0];
-                
-                events.push({
-                    title: todo.title,
-                    start: todo.started_at,
-                    end: endDateString,
-                    color: '#007bff',
-                    allDay: true
-                });
-            });
-            
-            // デバッグ: イベントを確認
-            console.log('events:', events);
-            
-            // FullCalendarの初期化
-            var calendar = new FullCalendar.Calendar(calendarEl, {
-                initialView: 'dayGridMonth',
-                locale: 'ja',
-                events: events,
-                headerToolbar: {
-                    left: 'prev,next today',
-                    center: 'title',
-                    right: ''
-                },
-                height: 'auto',
-                eventDisplay: 'block',
-                displayEventTime: false
-            });
-            
-            calendar.render();
-        });
     </script>
 </head>
 <body>
     <!-- ヘッダー -->
     <div class="header">
         <h1><?php echo htmlspecialchars($project['project_name'], ENT_QUOTES, 'UTF-8'); ?></h1>
-        <a href="<?php echo Uri::create('home/index'); ?>" class="home-btn">ホームへ</a>
+        <a href="<?php echo \Uri::create('home/index'); ?>" class="home-btn">ホームへ</a>
     </div>
 
     <!-- カレンダーエリア（後回し） -->
@@ -374,43 +318,260 @@
     <div class="main-area">
         <!-- 左：TODOリスト -->
         <div class="section">
-            <div class="section-title">TODOリスト（未完了）</div>
-            
-            <div class="no-todos">
-                    未完了のTODOはありません
-            </div>
+            <div class="section-title">TODOリスト</div>
             <ul class="todo-list" id="todoListSection">
                 <!-- ko foreach: todos -->
                 <li class="todo-item">
+                   <!-- ko if: $root.isDeleteMode -->
+                   <input type="checkbox" 
+                          data-bind="checkedValue: $data, checked: $root.selectedTodos" 
+                          class="todo-checkbox">
+                   <!-- /ko -->
                    <div class="todo-title" data-bind="text: title"></div>
-                   <!-- ko if started_at || ended_at -->
+                   <!-- ko if: started_at || ended_at -->
                    <div class="todo-dates">
-                        開始: <span data-bind="text: $root.formatDate(started_at)"></span>                            / 終了: <span data-bind="text: $root.formatDate(ended_at)"></span>
+                        開始: <span data-bind="text: $root.formatDate(started_at)"></span>
+                        / 終了: <span data-bind="text: $root.formatDate(ended_at)"></span>
                     </div>
                    <!-- /ko -->
                 </li>
-            <!-- /ko -->
+                <!-- /ko -->
             </ul>
 
             <script>
-                function TodoListViewModel(){
-                    var self = this;
+                // knockout.jsが読み込まれるまで待機
+                function initTodoList() {
+                    if (typeof ko === 'undefined') {
+                        console.log('Waiting for knockout.js to load...');
+                        setTimeout(initTodoList, 100);
+                        return;
+                    }
+                    
+                    console.log('Knockout.js loaded, initializing...');
+                    
+                    // ProjectViewModel: TODOリストとカレンダーを統合管理
+                    function ProjectViewModel(){
+                        var self = this;
 
-                    self.formatDate = ko.observableArray(<?php echo json_encode($todos); ?>);
+                        // TODOリストのobservableArray
+                        var todosData = <?php echo json_encode($todos); ?>;
+                        console.log('TODOs data from PHP:', todosData);
+                        self.todos = ko.observableArray(todosData);
+                        console.log('TODOs observable array:', self.todos());
 
-                    self.formatDate = function(dateString) {
-                        if(!dateString) return '';
-                        var date = new Date(dateString);
-                        return date.getFullYear() + '/' + (date.getMonth() + 1) + '/' + date.getDate();
-                    };
+                        // カレンダーインスタンスを保持
+                        self.calendarInstance = null;
 
-                    self.addTodo = function(newTodo) {
-                        self.todos.push(newTodo);
-                    };
+                        // カレンダー用TODOデータ（日付が設定されているもののみ）
+                        self.calendarTodos = ko.computed(function() {
+                            return self.todos().filter(function(todo) {
+                                return todo.started_at && todo.ended_at;
+                            });
+                        });
+
+                        // FullCalendar用イベント形式に変換
+                        self.calendarEvents = ko.computed(function() {
+                            return self.calendarTodos().map(function(todo) {
+                                // 終了日に1日加算（FullCalendarは終了日を含まないため）
+                                var endDate = new Date(todo.ended_at);
+                                endDate.setDate(endDate.getDate() + 1);
+                                var endDateString = endDate.toISOString().split('T')[0];
+                                
+                                return {
+                                    id: todo.id,
+                                    title: todo.title,
+                                    start: todo.started_at,
+                                    end: endDateString,
+                                    color: '#007bff',
+                                    allDay: true
+                                };
+                            });
+                        });
+
+                        // 日付フォーマット関数
+                        self.formatDate = function(dateString) {
+                            if(!dateString) return '';
+                            var date = new Date(dateString);
+                            return date.getFullYear() + '/' + (date.getMonth() + 1) + '/' + date.getDate();
+                        };
+
+                        // TODO追加関数
+                        self.addTodo = function(newTodo) {
+                            self.todos.push(newTodo);
+                        };
+
+                        // 選択されたTODOリスト
+                        self.selectedTodos = ko.observableArray([]);
+
+                        // TODO選択/解除のトグル
+                        self.toggleSelection = function(todo) {
+                            if(self.selectedTodos.indexOf(todo) >= 0){
+                                self.selectedTodos.remove(todo);
+                            }else{
+                                self.selectedTodos.push(todo);
+                            }
+                        };
+
+                        // 選択されたTODOがあるかどうか
+                        self.hasSelectedTodos = ko.computed(function() {
+                            return self.selectedTodos().length > 0;
+                        });
+
+                        // 現在のモード
+                        self.currentMode = ko.observable('<?php echo $mode ?? "create"; ?>');
+                        self.isDeleteMode = ko.computed(function() {
+                            return self.currentMode() === 'delete';
+                        });
+
+                        // モーダル表示状態
+                        self.showDeleteModal = ko.observable(false);
+
+                        // 削除確認メッセージ
+                        self.deleteMessage = ko.computed(function() {
+                            var count = self.selectedTodos().length;
+                            return count + '件のTODOを削除しますか？';
+                        });
+
+                        // TODO削除モーダルを開く
+                        self.openDeleteModal = function() {
+                            if(self.selectedTodos().length === 0) {
+                                alert('削除するTODOを選択してください');
+                                return;
+                            }
+                            self.showDeleteModal(true);
+                        };
+
+                        // TODO削除モーダルを閉じる
+                        self.closeDeleteModal = function() {
+                            self.showDeleteModal(false);
+                        };
+
+                        // TODO削除実行
+                        self.deleteSelected = function() {
+                            var todoIds = self.selectedTodos().map(function(t) { return t.id; });
+                            var formData = new FormData();
+                            todoIds.forEach(function(id) { 
+                                formData.append('todo_ids[]', id); 
+                            });
+                            formData.append('fuel_csrf_token', CSRF_TOKEN);
+
+                            fetch('<?php echo Uri::create("todo/delete/" . $project["id"]); ?>', {
+                                method: 'POST',
+                                body: formData
+                            })
+                            .then(function(res) { return res.json(); })
+                            .then(function(data) {
+                                if (data.success) {
+                                    self.selectedTodos().forEach(function(todo) {
+                                        self.todos.remove(todo);
+                                    });
+                                    self.selectedTodos.removeAll();
+                                    self.closeDeleteModal();
+                                    alert('TODOを削除しました');
+                                } else {
+                                    alert(data.message || '削除に失敗しました');
+                                }
+                            })
+                            .catch(function(error) {
+                                console.error('Delete error:', error);
+                                alert('通信エラーが発生しました');
+                            });
+                        };
+
+                        // カレンダー初期化
+                        self.initCalendar = function() {
+                            var calendarEl = document.getElementById('calendar');
+                            if (!calendarEl) {
+                                console.warn('Calendar element not found');
+                                return;
+                            }
+                            
+                            console.log('Initializing FullCalendar...');
+                            console.log('Initial events:', self.calendarEvents());
+                            
+                            self.calendarInstance = new FullCalendar.Calendar(calendarEl, {
+                                initialView: 'dayGridMonth',
+                                locale: 'ja',
+                                events: self.calendarEvents(),
+                                headerToolbar: {
+                                    left: 'prev,next today',
+                                    center: 'title',
+                                    right: ''
+                                },
+                                height: 'auto',
+                                eventDisplay: 'block',
+                                displayEventTime: false
+                            });
+                            
+                            self.calendarInstance.render();
+                            console.log('FullCalendar initialized');
+                        };
+
+                        // カレンダー更新（TODOの変更を反映）
+                        self.updateCalendar = function() {
+                            if (!self.calendarInstance) {
+                                console.warn('Calendar instance not initialized');
+                                return;
+                            }
+                            
+                            console.log('Updating calendar events...');
+                            
+                            // 既存のイベントをすべて削除
+                            var existingEvents = self.calendarInstance.getEvents();
+                            existingEvents.forEach(function(event) {
+                                event.remove();
+                            });
+                            
+                            // 新しいイベントを追加
+                            var newEvents = self.calendarEvents();
+                            console.log('New events:', newEvents);
+                            newEvents.forEach(function(event) {
+                                self.calendarInstance.addEvent(event);
+                            });
+                            
+                            console.log('Calendar updated');
+                        };
+
+                        // TODOリストの変更を監視してカレンダーを自動更新
+                        self.calendarTodos.subscribe(function(newTodos) {
+                            console.log('Calendar todos changed:', newTodos.length);
+                            self.updateCalendar();
+                        });
+                    }
+
+                    // ViewModelインスタンスを作成
+                    var viewModel = new ProjectViewModel();
+                    
+                    // グローバルにアクセス可能にする（TODO作成・更新時に使用）
+                    window.projectViewModel = viewModel;
+                    
+                    // TODOリストにバインディング適用
+                    ko.applyBindings(viewModel, document.getElementById('todoListSection'));
+                    
+                    // 削除ボタンエリアにもバインディング適用
+                    var deleteModeArea = document.getElementById('deleteModeArea');
+                    if (deleteModeArea) {
+                        ko.applyBindings(viewModel, deleteModeArea);
+                    }
+                    
+                    // 削除モーダルにもバインディング適用
+                    var deleteModalEl = document.getElementById('todoDeleteModal');
+                    if (deleteModalEl) {
+                        ko.applyBindings(viewModel, deleteModalEl);
+                    }
+
+                    // カレンダーを初期化
+                    viewModel.initCalendar();
                 }
-
-                ko.applyBindings(new TodoListViewModel(), document.getElementById('todoListSection'));
+                
+                // DOMが読み込まれたら初期化
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', initTodoList);
+                } else {
+                    initTodoList();
+                }
             </script>
+        </div>
 
         <!-- 中央：作業時間記録 -->
         <div class="section">
@@ -455,13 +616,13 @@
             </ul>
             
             <div class="btn-group">
-                <button class="btn btn-success" onclick="openProjectCreateModal()">新規作成</button>
+                <button class="btn btn-success" onclick="openProjectCreateModal()">作成</button>
                 <button class="btn btn-danger" onclick="openProjectDeleteModal()">削除</button>
             </div>
 
             <div class="section-title" style="margin-top: 20px;">TODO操作</div>
             <div class="mode-buttons">
-                <button class="mode-btn <?php echo ($mode == 'create') ? 'active' : ''; ?>" onclick="switchMode('create')">新規作成</button>
+                <button class="mode-btn <?php echo ($mode == 'create') ? 'active' : ''; ?>" onclick="switchMode('create')">作成</button>
                 <button class="mode-btn <?php echo ($mode == 'update') ? 'active' : ''; ?>" onclick="switchMode('update')">更新</button>
                 <button class="mode-btn <?php echo ($mode == 'delete') ? 'active' : ''; ?>" onclick="switchMode('delete')">削除</button>
             </div>
@@ -478,7 +639,7 @@
 
             <!-- TODO削除ボタン -->
             <div id="deleteModeArea" style="<?php echo ($mode == 'delete') ? '' : 'display:none;'; ?>">
-                <button class="btn btn-danger" style="margin-top: 10px;" onclick="openTodoDeleteModal()">選択したTODOを削除</button>
+                <button class="btn btn-danger" style="margin-top: 10px;" data-bind="click: openDeleteModal">TODO削除</button>
             </div>
         </div>
     </div>
@@ -603,13 +764,13 @@
     </div>
 
     <!-- モーダル：TODO削除確認 -->
-    <div id="todoDeleteModal" class="modal">
+    <div id="todoDeleteModal" class="modal" data-bind="css: { 'show': showDeleteModal }">
         <div class="modal-content">
             <div class="modal-header">TODO削除確認</div>
-            <p id="todoDeleteMessage">選択したTODOを削除しますか？</p>
+            <p data-bind="text: deleteMessage"></p>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" onclick="closeModal('todoDeleteModal')">キャンセル</button>
-                <button type="button" class="btn btn-danger" onclick="deleteTodos()">削除</button>
+                <button type="button" class="btn btn-secondary" data-bind="click: closeDeleteModal">キャンセル</button>
+                <button type="button" class="btn btn-danger" data-bind="click: deleteSelected">削除</button>
             </div>
         </div>
     </div>
@@ -724,7 +885,17 @@
                 try {
                     const data = JSON.parse(text);
                     if (data.success) {
-                        window.location.reload();
+                        // ページリロードせずに、ViewModelに新しいTODOを追加
+                        if (window.projectViewModel && data.todo) {
+                            window.projectViewModel.todos.push(data.todo);
+                            closeModal('todoCreateModal');
+                            // フォームをリセット
+                            document.getElementById('todoCreateForm').reset();
+                            alert('TODOを作成しました');
+                        } else {
+                            // ViewModelがない場合や、TODOデータが返されない場合はリロード
+                            window.location.reload();
+                        }
                     } else {
                         alert(data.message);
                     }
@@ -762,7 +933,20 @@
                 try {
                     const data = JSON.parse(text);
                     if (data.success) {
-                        window.location.reload();
+                        // ページリロードせずに、ViewModelの該当TODOを更新
+                        if (window.projectViewModel && data.todo) {
+                            var todoId = data.todo.id;
+                            var todos = window.projectViewModel.todos();
+                            var index = todos.findIndex(t => t.id == todoId);
+                            if (index !== -1) {
+                                window.projectViewModel.todos.splice(index, 1, data.todo);
+                            }
+                            closeModal('todoUpdateModal');
+                            alert('TODOを更新しました');
+                        } else {
+                            // ViewModelがない場合や、TODOデータが返されない場合はリロード
+                            window.location.reload();
+                        }
                     } else {
                         alert(data.message);
                     }
@@ -779,50 +963,7 @@
         });
 
         // TODO削除
-        window.openTodoDeleteModal = function() {
-            const checkboxes = document.querySelectorAll('.delete-checkbox:checked');
-            if (checkboxes.length === 0) {
-                alert('削除するTODOを選択してください');
-                return;
-            }
-            document.getElementById('todoDeleteMessage').textContent = checkboxes.length + '件のTODOを削除しますか？';
-            openModal('todoDeleteModal');
-        };
-        window.deleteTodos = function() {
-            const checkboxes = document.querySelectorAll('.delete-checkbox:checked');
-            const todoIds = Array.from(checkboxes).map(cb => cb.value);
-            
-            const formData = new FormData();
-            todoIds.forEach(id => formData.append('todo_ids[]', id));
-            
-            fetch('<?php echo Uri::create("todo/delete/" . $project["id"]); ?>', {
-                method: 'POST',
-                body: formData
-            })
-            .then(res => {
-                console.log('Delete response status:', res.status);
-                return res.text();
-            })
-            .then(text => {
-                console.log('Delete response:', text);
-                try {
-                    const data = JSON.parse(text);
-                    if (data.success) {
-                        window.location.reload();
-                    } else {
-                        alert(data.message);
-                    }
-                } catch (e) {
-                    console.error('JSON parse error:', e);
-                    console.error('Response was:', text);
-                    alert('エラーが発生しました。ログインし直してください。');
-                }
-            })
-            .catch(error => {
-                console.error('Fetch error:', error);
-                alert('通信エラーが発生しました');
-            });
-        };
+        // 従来の削除関数は削除され、Knockout.jsのViewModelに統合されました
 
         // 削除モード時のチェックボックス表示切り替え
         function updateCheckboxVisibility() {
